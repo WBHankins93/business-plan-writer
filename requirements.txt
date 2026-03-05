@@ -1,0 +1,7 @@
+groq
+anthropic
+openai
+python-docx
+python-dotenv
+rich
+reportlab

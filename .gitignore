@@ -1,0 +1,29 @@
+# Environment — never commit keys
+.env
+.env.local
+.env.*.local
+
+# Internal docs / tooling
+.claude/
+
+# Phase planning docs
+phase*.md
+
+# Generated output
+business-plan-docs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.eggs/
+dist/
+build/
+
+# OS / editor
+.DS_Store
+.idea/
+*.swp
+*.swo
