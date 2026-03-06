@@ -38,71 +38,117 @@ The plan must be:
 ---
 
 DOCUMENT STRUCTURE:
-Write the plan using the following sections in order. Use ## headers for each section.
+Write the plan using the following sections in order. Use ## for main sections, ### for subsections.
+Each section has a minimum word expectation — do not cut short.
 
 ## Executive Summary
-A compelling 2–3 paragraph overview of the business, the opportunity, and the ask.
-This is read first and often read alone — make it strong.
+3–4 paragraphs: business description, problem being solved, owner qualifications,
+market opportunity with supporting data, the specific ask and how it will be used.
+This is the most-read section — lead with the strongest information.
+Target: 400–500 words.
 
 ## Company Overview
-Business name, ownership, location, legal structure, founding date, stage.
-What the business does in plain terms.
+Business name, ownership structure, legal entity, location, founding date and stage.
+Describe what the business does in concrete, plain terms — no jargon.
+Include the mission and what success looks like at 3 years.
+Target: 250–350 words.
 
 ## Owner & Management Team
-The owner's background, credentials, and relevant experience.
-Why they are uniquely qualified to build this business.
-Hiring plans and team growth trajectory.
+Full professional background — credentials, licenses, years of experience, specific past roles.
+Explain WHY this owner is uniquely positioned to build this specific business.
+Address management depth: current team, advisory relationships, key hires planned.
+Target: 350–450 words.
 
 ## Products & Services
-What the business offers, how it is delivered, pricing structure.
-What sets it apart from what exists today.
-Future service line roadmap.
+Describe every service offering in detail: what it is, who it serves, how it is delivered,
+how long a typical engagement lasts, and what the client experience looks like.
+Pricing structure with specific dollar amounts.
+What differentiates this offering from what already exists.
+Future service lines planned (with timeline if known).
+Target: 400–500 words.
 
 ## Market Analysis
-[USE THE MARKET ANALYSIS PROVIDED BY AGENT 2 — incorporate it here, refine if needed,
-do not simply paste it verbatim. Integrate it as part of the overall document flow.]
+[USE THE MARKET ANALYSIS PROVIDED BY AGENT 2 — incorporate it here, refine for flow,
+do not paste verbatim. Add narrative context. Cite specific numbers where available.]
+
+Cover: industry size and growth, local/regional demand, target customer profile,
+market trends driving demand, and why now is the right time.
+Target: 500–700 words.
 
 ## Marketing & Sales Strategy
-How the business reaches and converts clients.
-Sales process, referral strategy, advertising channels.
-Marketing budget and return on investment expectations.
+How the business will be discovered, how leads become clients, how clients are retained.
+Be specific: which channels, which referral sources, which platforms.
+Include the sales process step by step.
+Marketing budget in dollar terms. Expected cost per acquisition.
+Client retention mechanisms and lifetime value expectations.
+Target: 400–500 words.
 
 ## Competitive Analysis
-Who the competitors are and why this business wins.
-Specific competitive advantages — not generic claims.
+Name specific competitors or competitor categories. Be direct.
+Analyze their strengths and weaknesses relative to this business.
+Articulate specific competitive advantages — not generic claims like "excellent service."
+Explain the market positioning and why it is defensible.
+Target: 300–400 words.
 
 ## Operations Plan
-How the business runs day to day.
-Technology, tools, workflows, service delivery process.
-Regulatory compliance, licensing, insurance.
+Day-to-day workflow: how clients are scheduled, served, and billed.
+Technology stack: EHR, telehealth platform, scheduling, billing, communications.
+Staffing model (owner + team structure).
+Regulatory and compliance requirements and how they are met.
+Facilities: current situation and planned expansion.
+Target: 400–500 words.
 
 ## Implementation Plan
-Phased plan: what gets built, in what order, on what timeline.
-Key milestones at 6, 12, and 24 months.
+Phase-by-phase rollout with specific milestone dates.
+What must happen in months 1–3 for the business to open.
+Key milestones at 6 months, 12 months, and 24 months with measurable targets.
+Risks associated with the timeline and how they are mitigated.
+Target: 350–450 words.
 
 ## Financial Plan
-[USE THE FINANCIAL VALIDATION SUMMARY PROVIDED BY AGENT 3 — frame the financials
-credibly, address any concerns the financial checker raised, do not hide weaknesses.]
+[USE THE FINANCIAL VALIDATION SUMMARY PROVIDED BY AGENT 3 — frame the numbers credibly,
+address any concerns raised. Do not hide weaknesses — acknowledge and respond to them.]
 
-Startup costs and funding use.
-Revenue projections (monthly Year 1, annual Year 2–3).
-Expense projections with major categories.
-Break-even analysis.
-Cash flow narrative.
+### Startup Costs
+Table or itemized list of all startup expenses with dollar amounts.
+
+### Revenue Projections
+Monthly revenue table for Year 1 (12 rows, showing clients and revenue).
+Annual summary for Years 1–3 with growth rationale.
+
+### Operating Expenses
+Table showing major expense categories by month or year.
+
+### Break-Even Analysis
+When does the business cover its costs? At what client volume?
+State clearly and show the math.
+
+### Cash Flow Narrative
+Describe the cash position month by month through the first year.
+Identify the months of highest risk and how they are managed.
+
+Target: 600–800 words for the entire Financial Plan section.
 
 ## Funding Request
-If applicable: amount sought, use of funds, repayment plan or return expectations.
+The specific dollar amount requested.
+Detailed use of funds — line by line, not just categories.
+How the funding enables the business to reach the milestones described above.
+Repayment plan (if loan) or return expectations (if investor).
+What happens if only partial funding is received.
+Target: 300–400 words.
 
 ---
 
 WRITING GUIDELINES:
 - Write in third person for the business, first person for the owner's voice (where natural)
-- Each section should earn its place — cut anything that doesn't reduce doubt or add credibility
-- Lead sections with the strongest information, not background context
-- Use tables for financial projections (monthly revenue, expense breakdown)
+- Lead every section with the strongest, most credible information — not background
+- Every claim should be grounded in a specific number, credential, or fact from the intake
+- Use ### subsection headers within Financial Plan as shown above
+- Use markdown tables for all financial projections (monthly revenue, expense breakdown)
 - Do not include a table of contents — this is source material for a document formatter
 - Use [WRITER_NOTE: ...] to flag any areas where data was thin or missing, so the human can review
-- Aim for 2,000–3,000 words total for a strong initial draft
+- Target total length: 4,000–6,000 words. This is a complete, submission-ready plan draft.
+  A plan under 3,500 words is incomplete. Do not summarize — write the full content.
 """
 
 

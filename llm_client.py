@@ -47,6 +47,7 @@ def call_llm(
     writer: bool = False,
     model: str | None = None,
     temperature: float = 0.7,
+    max_tokens: int | None = None,
 ) -> str:
     """
     Call the configured LLM provider and return the response text.
@@ -57,28 +58,31 @@ def call_llm(
         writer:        If True, use the writer provider/model (Agent 4).
         model:         Explicit model override (ignores env config).
         temperature:   Sampling temperature (default 0.7).
+        max_tokens:    Max output tokens. Writer agents default to 8192;
+                       standard agents default to 4096.
 
     Returns:
         The model's response as a string.
     """
     provider = _PROVIDER_WRITER if writer else _PROVIDER
     resolved_model = model or (_MODEL_WRITER if writer else _MODEL)
+    resolved_max_tokens = max_tokens or (8192 if writer else 4096)
 
     console.log(f"[dim]LLM call → provider={provider} model={resolved_model}[/dim]")
 
     if provider == "groq":
-        return _call_groq(system_prompt, user_prompt, resolved_model, temperature)
+        return _call_groq(system_prompt, user_prompt, resolved_model, temperature, resolved_max_tokens)
     elif provider == "anthropic":
-        return _call_anthropic(system_prompt, user_prompt, resolved_model, temperature)
+        return _call_anthropic(system_prompt, user_prompt, resolved_model, temperature, resolved_max_tokens)
     elif provider == "openai":
-        return _call_openai(system_prompt, user_prompt, resolved_model, temperature)
+        return _call_openai(system_prompt, user_prompt, resolved_model, temperature, resolved_max_tokens)
     else:
         raise ValueError(f"Unknown LLM provider: {provider!r}. Must be groq, anthropic, or openai.")
 
 
 # ── Provider implementations ───────────────────────────────────────────────────
 
-def _call_groq(system_prompt: str, user_prompt: str, model: str, temperature: float) -> str:
+def _call_groq(system_prompt: str, user_prompt: str, model: str, temperature: float, max_tokens: int) -> str:
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
         raise EnvironmentError("GROQ_API_KEY is not set. Add it to .env.local.")
@@ -96,6 +100,7 @@ def _call_groq(system_prompt: str, user_prompt: str, model: str, temperature: fl
             {"role": "user", "content": user_prompt},
         ],
         temperature=temperature,
+        max_tokens=max_tokens,
     )
     content = response.choices[0].message.content
     if content is None:
@@ -103,7 +108,7 @@ def _call_groq(system_prompt: str, user_prompt: str, model: str, temperature: fl
     return content
 
 
-def _call_anthropic(system_prompt: str, user_prompt: str, model: str, temperature: float) -> str:
+def _call_anthropic(system_prompt: str, user_prompt: str, model: str, temperature: float, max_tokens: int) -> str:
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         raise EnvironmentError("ANTHROPIC_API_KEY is not set. Add it to .env.local.")
@@ -116,7 +121,7 @@ def _call_anthropic(system_prompt: str, user_prompt: str, model: str, temperatur
     client = anthropic.Anthropic(api_key=api_key)
     response = client.messages.create(
         model=model,
-        max_tokens=8096,
+        max_tokens=max_tokens,
         system=system_prompt,
         messages=[{"role": "user", "content": user_prompt}],
         temperature=temperature,
@@ -124,7 +129,7 @@ def _call_anthropic(system_prompt: str, user_prompt: str, model: str, temperatur
     return response.content[0].text
 
 
-def _call_openai(system_prompt: str, user_prompt: str, model: str, temperature: float) -> str:
+def _call_openai(system_prompt: str, user_prompt: str, model: str, temperature: float, max_tokens: int) -> str:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise EnvironmentError("OPENAI_API_KEY is not set. Add it to .env.local.")
@@ -142,6 +147,7 @@ def _call_openai(system_prompt: str, user_prompt: str, model: str, temperature: 
             {"role": "user", "content": user_prompt},
         ],
         temperature=temperature,
+        max_tokens=max_tokens,
     )
     content = response.choices[0].message.content
     if content is None:
