@@ -11,6 +11,9 @@ phase*.md
 
 # Generated output
 business-plan-docs/
+output/documents/
+sessions/
+intake/progress/
 
 # Python
 __pycache__/
