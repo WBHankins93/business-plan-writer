@@ -49,3 +49,22 @@ This file records each improvement task completed, in commit order, so changes a
 ## 8) Code Quality Cleanup
 - Removed unused `Text` import from `main.py`.
 - Removed unused `TYPE_CHECKING` block, markdown regex constants, and unused `qn` import from `output/pdf_exporter.py`.
+
+## 9) Persona-Enhanced Reasoning (No Pipeline Expansion)
+- Preserved the existing 5-agent pipeline and avoided introducing new agents.
+- Added new persona prompt files:
+  - `startup-operator`
+  - `gtm-strategist`
+  - `financial-analyst`
+  - `vc-partner`
+- Updated persona loader mappings to scope personas per agent:
+  - Agent 1: Startup Operator
+  - Agent 2: GTM Strategist + VC Partner
+  - Agent 3: Financial Analyst + Startup Operator
+  - Agent 4: Business Plan Architect (+ SaaS Founder conditional)
+  - Agent 5: Red Team + VC Partner + GTM Strategist
+- Updated Agent 1/2/3/4/5 task instructions to make persona influence explicit,
+  preserve disagreement/risk language, and use conservative interpretation when uncertain.
+- Updated prompt sync script to include the new advisory persona files.
+- Added `docs/persona-mapping.md` and updated README to explain persona-enhanced reasoning
+  as internal expert simulation, not additional orchestration.

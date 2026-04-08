@@ -5,7 +5,7 @@ Agent 5 — Critic
 Quality review of the completed business plan.
 Scores the plan across multiple dimensions and flags issues for human review.
 
-Personas: Red Team (finds problems) + Builder-Refiner (filters to what matters)
+Personas: Red Team (primary) + VC Partner + GTM Strategist
 Model:    llama-3.3-70b-versatile
 """
 
@@ -21,12 +21,16 @@ from prompts.loader import build_agent_identity_for
 _TASK_INSTRUCTIONS = """
 You are performing a final quality review of a completed business plan draft.
 
-Your role is two-part:
+Your role is three-part:
 1. RED TEAM: Aggressively stress-test the plan. Find problems, gaps, weak reasoning,
    and anything a lender or investor would question. Assume a skeptical reader.
-2. BUILDER-REFINER: Filter your critique down to the issues that actually matter.
-   Not every imperfection needs to be flagged. Focus on what would cause a reader
-   to reject or doubt the plan.
+2. VC PARTNER: Evaluate investor-grade quality of market logic, defensibility, and
+   assumptions that would fail under diligence.
+3. GTM STRATEGIST: Pressure-test distribution realism, ICP clarity, channel strategy,
+   and early traction assumptions.
+
+When lenses disagree, surface disagreement explicitly and default to a conservative
+evaluation stance.
 
 Score the plan on five dimensions (1–10 each, where 10 = excellent):
 - Clarity: Is the plan easy to understand and follow?
@@ -39,10 +43,14 @@ Then identify:
 - Top 3 strengths of the plan (specific, not generic)
 - Top 3 issues that must be addressed before submission (ranked by severity)
 - Any sections that should be revised or expanded
-- An overall recommendation
+- An overall recommendation and approval status
+- Fatal flaws (if any)
+- Assumptions requiring validation before execution
 
 Return your response as valid JSON with this exact structure:
 {
+  "confidence_score": <0-100>,
+  "approval_status": "GO" | "CONDITIONAL" | "NO-GO",
   "scores": {
     "clarity": <1-10>,
     "completeness": <1-10>,
@@ -64,9 +72,19 @@ Return your response as valid JSON with this exact structure:
       "recommendation": "<what to do about it>"
     }
   ],
+  "primary_risks": [
+    "<most important risk 1>",
+    "<most important risk 2>"
+  ],
+  "fatal_flaws": [
+    "<fatal flaw if present>"
+  ],
+  "assumptions_requiring_validation": [
+    "<assumption that must be validated>"
+  ],
   "sections_to_revise": ["<section name>"],
   "overall_assessment": "<2-3 sentence honest assessment>",
-  "recommendation": "approve" | "revise" | "reject",
+  "recommendation": "go" | "conditional" | "no-go",
   "revision_notes": "<if revise: specific instructions for Agent 4 revision>"
 }
 
@@ -124,7 +142,7 @@ Judge this plan as a skeptical lender or grant committee reviewer would.
     raw_response = call_llm(system_prompt, user_prompt, temperature=0.4)
 
     critique = _parse_json_response(raw_response)
-    approved = critique.get("recommendation") == "approve"
+    approved = critique.get("recommendation") == "go"
 
     return {
         "critique": critique,

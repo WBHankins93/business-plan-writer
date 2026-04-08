@@ -8,6 +8,7 @@
 [![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o-74AA9C?style=flat-square)](https://openai.com)
 
 Five specialized agents. One clean document. No manual drafting.
+Each agent now applies expert personas as internal reasoning lenses (not extra agents).
 
 ---
 
@@ -105,17 +106,24 @@ Supported providers: `groq` · `anthropic` · `openai`
 
 ---
 
-## The Agents
+## The 5-Agent Pipeline (Persona-Enhanced)
 
-| # | Role | Persona | Output |
+| # | Role | Internal persona lens | Output |
 |---|------|---------|--------|
-| 1 | **Intake Validator** | Decision Anchor | Completeness score, missing field flags |
-| 2 | **Market Builder** | Pattern Seer | Market analysis, positioning intel |
-| 3 | **Financial Checker** | Finance Dragon | Credibility rating, cash flow risks |
+| 1 | **Intake Validator** | Startup Operator | Completeness score, missing field flags, actionability checks |
+| 2 | **Market Builder** | GTM Strategist + VC Partner | Market analysis with ICP, positioning, channel and market logic |
+| 3 | **Financial Checker** | Financial Analyst + Startup Operator | Credibility rating, cash flow risks, assumption quality |
 | 4 | **Plan Writer** | Business Plan Architect _(+ SaaS Founder if detected)_ | Full business plan (markdown) |
-| 5 | **Critic** | Red Team + Builder-Refiner | 5-dimension quality score, approval decision |
+| 5 | **Critic** | Red Team + VC Partner + GTM Strategist | Stress-tested critique, confidence score, GO/CONDITIONAL/NO-GO |
 
 The intake schema covers **12 sections** and **60+ fields**, classified into three tiers: critical, structural, and enhancement. Thin or vague answers are detected regardless of length.
+
+### Why this improves output quality
+
+- **No architecture churn:** pipeline remains the same 5-agent sequence.
+- **Higher decision quality:** each agent applies role-specific expert heuristics instead of generic prose generation.
+- **Better risk handling:** disagreements and weak assumptions are surfaced explicitly, with conservative defaults in evaluation stages.
+- **No persona bleed:** personas are scoped by agent role and do not create a new orchestration layer.
 
 ---
 
