@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from agents.prompt_utils import compact_json
 from llm_client import call_llm
 from prompts.loader import build_agent_identity_for
 
@@ -69,7 +70,7 @@ def run(agent_1_output: dict[str, Any]) -> dict[str, Any]:
 
     user_prompt = f"""
 BUSINESS INTAKE (market-relevant sections):
-{json.dumps(market_data, indent=2, default=str)}
+{compact_json(market_data, max_chars=9000)}
 
 ---
 

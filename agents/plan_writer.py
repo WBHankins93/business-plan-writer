@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from agents.prompt_utils import compact_json, truncate_text
 from llm_client import call_llm
 from prompts.loader import build_agent_identity_for, resolve_agent_4_key
 
@@ -194,12 +195,12 @@ def run(
 
     user_prompt = f"""
 FULL INTAKE DATA:
-{json.dumps(intake, indent=2, default=str)}
+{compact_json(intake, max_chars=14000)}
 
 ---
 
 MARKET ANALYSIS (from Agent 2 — incorporate and refine, do not paste verbatim):
-{market_analysis}
+{truncate_text(market_analysis, max_chars=7000)}
 
 ---
 

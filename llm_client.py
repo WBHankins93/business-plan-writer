@@ -13,7 +13,10 @@ Config via environment variables:
 from __future__ import annotations
 
 import os
+import random
+import time
 from pathlib import Path
+from typing import Callable
 
 from dotenv import load_dotenv
 from rich.console import Console
@@ -38,6 +41,54 @@ _MODEL = os.getenv("LLM_MODEL") or _DEFAULT_MODELS.get(_PROVIDER, "llama-3.3-70b
 
 _PROVIDER_WRITER = os.getenv("LLM_PROVIDER_WRITER", _PROVIDER).lower()
 _MODEL_WRITER = os.getenv("LLM_MODEL_WRITER") or _DEFAULT_MODELS.get(_PROVIDER_WRITER, _MODEL)
+
+# Retry / timeout controls
+_LLM_TIMEOUT_SECONDS = float(os.getenv("LLM_TIMEOUT_SECONDS", "60"))
+_LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "3"))
+_LLM_RETRY_BACKOFF_SECONDS = float(os.getenv("LLM_RETRY_BACKOFF_SECONDS", "1.25"))
+
+
+class LLMClientError(RuntimeError):
+    """Base exception for all LLM client errors."""
+
+
+class LLMConfigurationError(LLMClientError):
+    """Raised when provider/api-key configuration is invalid."""
+
+
+class LLMRequestError(LLMClientError):
+    """Raised when a provider request fails after retries."""
+
+
+def _run_with_retries(provider: str, operation: Callable[[], str]) -> str:
+    """
+    Run a provider call with bounded retries + backoff.
+
+    Retries are intended for transient provider/network failures.
+    """
+    last_error: Exception | None = None
+
+    for attempt in range(1, _LLM_MAX_RETRIES + 1):
+        try:
+            return operation()
+        except Exception as e:  # noqa: BLE001 - provider SDK errors are not uniform
+            last_error = e
+            is_final = attempt == _LLM_MAX_RETRIES
+            if is_final:
+                break
+
+            sleep_s = _LLM_RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1))
+            # jitter to reduce request bursts when multiple runs fail simultaneously
+            sleep_s += random.uniform(0.0, 0.25)
+            console.log(
+                f"[yellow]LLM call failed ({provider}) attempt {attempt}/{_LLM_MAX_RETRIES}; "
+                f"retrying in {sleep_s:.2f}s[/yellow]"
+            )
+            time.sleep(sleep_s)
+
+    raise LLMRequestError(
+        f"{provider} request failed after {_LLM_MAX_RETRIES} attempts: {last_error}"
+    ) from last_error
 
 
 def call_llm(
@@ -71,13 +122,24 @@ def call_llm(
     console.log(f"[dim]LLM call → provider={provider} model={resolved_model}[/dim]")
 
     if provider == "groq":
-        return _call_groq(system_prompt, user_prompt, resolved_model, temperature, resolved_max_tokens)
+        return _run_with_retries(
+            provider,
+            lambda: _call_groq(system_prompt, user_prompt, resolved_model, temperature, resolved_max_tokens),
+        )
     elif provider == "anthropic":
-        return _call_anthropic(system_prompt, user_prompt, resolved_model, temperature, resolved_max_tokens)
+        return _run_with_retries(
+            provider,
+            lambda: _call_anthropic(system_prompt, user_prompt, resolved_model, temperature, resolved_max_tokens),
+        )
     elif provider == "openai":
-        return _call_openai(system_prompt, user_prompt, resolved_model, temperature, resolved_max_tokens)
+        return _run_with_retries(
+            provider,
+            lambda: _call_openai(system_prompt, user_prompt, resolved_model, temperature, resolved_max_tokens),
+        )
     else:
-        raise ValueError(f"Unknown LLM provider: {provider!r}. Must be groq, anthropic, or openai.")
+        raise LLMConfigurationError(
+            f"Unknown LLM provider: {provider!r}. Must be groq, anthropic, or openai."
+        )
 
 
 # ── Provider implementations ───────────────────────────────────────────────────
@@ -85,12 +147,12 @@ def call_llm(
 def _call_groq(system_prompt: str, user_prompt: str, model: str, temperature: float, max_tokens: int) -> str:
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        raise EnvironmentError("GROQ_API_KEY is not set. Add it to .env.local.")
+        raise LLMConfigurationError("GROQ_API_KEY is not set. Add it to .env.local.")
 
     try:
         from groq import Groq
     except ImportError:
-        raise ImportError("Install the groq package: pip install groq")
+        raise LLMConfigurationError("Install the groq package: pip install groq")
 
     client = Groq(api_key=api_key)
     response = client.chat.completions.create(
@@ -101,24 +163,25 @@ def _call_groq(system_prompt: str, user_prompt: str, model: str, temperature: fl
         ],
         temperature=temperature,
         max_tokens=max_tokens,
+        timeout=_LLM_TIMEOUT_SECONDS,
     )
     content = response.choices[0].message.content
     if content is None:
-        raise RuntimeError("Groq returned empty content.")
+        raise LLMRequestError("Groq returned empty content.")
     return content
 
 
 def _call_anthropic(system_prompt: str, user_prompt: str, model: str, temperature: float, max_tokens: int) -> str:
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
-        raise EnvironmentError("ANTHROPIC_API_KEY is not set. Add it to .env.local.")
+        raise LLMConfigurationError("ANTHROPIC_API_KEY is not set. Add it to .env.local.")
 
     try:
         import anthropic
     except ImportError:
-        raise ImportError("Install the anthropic package: pip install anthropic")
+        raise LLMConfigurationError("Install the anthropic package: pip install anthropic")
 
-    client = anthropic.Anthropic(api_key=api_key)
+    client = anthropic.Anthropic(api_key=api_key, timeout=_LLM_TIMEOUT_SECONDS)
     response = client.messages.create(
         model=model,
         max_tokens=max_tokens,
@@ -126,18 +189,20 @@ def _call_anthropic(system_prompt: str, user_prompt: str, model: str, temperatur
         messages=[{"role": "user", "content": user_prompt}],
         temperature=temperature,
     )
+    if not response.content or not getattr(response.content[0], "text", None):
+        raise LLMRequestError("Anthropic returned empty content.")
     return response.content[0].text
 
 
 def _call_openai(system_prompt: str, user_prompt: str, model: str, temperature: float, max_tokens: int) -> str:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        raise EnvironmentError("OPENAI_API_KEY is not set. Add it to .env.local.")
+        raise LLMConfigurationError("OPENAI_API_KEY is not set. Add it to .env.local.")
 
     try:
         from openai import OpenAI
     except ImportError:
-        raise ImportError("Install the openai package: pip install openai")
+        raise LLMConfigurationError("Install the openai package: pip install openai")
 
     client = OpenAI(api_key=api_key)
     response = client.chat.completions.create(
@@ -148,8 +213,9 @@ def _call_openai(system_prompt: str, user_prompt: str, model: str, temperature: 
         ],
         temperature=temperature,
         max_tokens=max_tokens,
+        timeout=_LLM_TIMEOUT_SECONDS,
     )
     content = response.choices[0].message.content
     if content is None:
-        raise RuntimeError("OpenAI returned empty content.")
+        raise LLMRequestError("OpenAI returned empty content.")
     return content

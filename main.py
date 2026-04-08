@@ -21,7 +21,6 @@ from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
 from rich.rule import Rule
-from rich.text import Text
 
 console = Console()
 
@@ -67,6 +66,14 @@ def main() -> int:
         action="store_true",
         help="Skip PDF export (produce .docx only).",
     )
+    parser.add_argument(
+        "--allow-unready",
+        action="store_true",
+        help=(
+            "Allow pipeline to continue when Agent 1 marks intake as not ready. "
+            "Default behavior is to stop early."
+        ),
+    )
     args = parser.parse_args()
 
     intake_path = Path(args.intake)
@@ -108,7 +115,8 @@ def main() -> int:
     business_name = (
         intake.get("business_information", {}).get("business_name", "Unknown Business")
     )
-    intake_date = intake.get("business_information", {}).get("founding_date", None)
+    business_info = intake.get("business_information", {})
+    intake_date = business_info.get("year_founded") or business_info.get("founding_date")
 
     _ok(f"Intake loaded: {business_name}")
     console.print()
@@ -126,7 +134,11 @@ def main() -> int:
     _info(a1_report.get("quality_assessment", ""))
 
     if not ready:
-        _warn("Intake flagged as not ready — proceeding anyway (Phase 2 will gate this).")
+        _warn("Intake flagged as not ready.")
+        if not args.allow_unready:
+            _fail("Stopping pipeline. Re-run with --allow-unready to continue anyway.")
+            return 1
+        _warn("Proceeding due to --allow-unready override.")
 
     missing = a1_report.get("missing_required", [])
     if missing:

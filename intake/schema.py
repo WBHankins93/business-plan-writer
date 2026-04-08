@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
+import re
 
 # Vague answers that count as "thin" regardless of length
 _VAGUE_PHRASES = {
@@ -221,6 +222,8 @@ class FieldResult:
 @dataclass
 class ValidationReport:
     field_results: list[FieldResult] = field(default_factory=list)
+    typed_issues: list[str] = field(default_factory=list)
+    cross_field_issues: list[str] = field(default_factory=list)
 
     @property
     def missing_tier1(self) -> list[FieldResult]:
@@ -251,7 +254,32 @@ class ValidationReport:
             lines.append(f"Thin Tier 2 (structural): {[r.field.name for r in self.thin_tier2]}")
         if self.missing_tier3:
             lines.append(f"Missing Tier 3 (enhancement): {[r.field.name for r in self.missing_tier3]}")
+        if self.typed_issues:
+            lines.append(f"Typed validation issues: {self.typed_issues}")
+        if self.cross_field_issues:
+            lines.append(f"Cross-field issues: {self.cross_field_issues}")
         return "\n".join(lines)
+
+
+_NUMBER_RE = re.compile(r"[-+]?\d[\d,]*(?:\.\d+)?")
+
+
+def _to_float(value: Any) -> float | None:
+    """Best-effort numeric parser for intake fields that may include currency symbols."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value).strip().lower()
+    if not text:
+        return None
+    match = _NUMBER_RE.search(text.replace("$", ""))
+    if not match:
+        return None
+    try:
+        return float(match.group(0).replace(",", ""))
+    except ValueError:
+        return None
 
 
 def validate_intake(intake: dict[str, Any]) -> tuple[dict[str, Any], ValidationReport]:
@@ -283,4 +311,48 @@ def validate_intake(intake: dict[str, Any]) -> tuple[dict[str, Any], ValidationR
             note=note,
         ))
 
+    _run_typed_validation(intake, report)
+    _run_cross_field_validation(intake, report)
+
     return annotated, report
+
+
+def _run_typed_validation(intake: dict[str, Any], report: ValidationReport) -> None:
+    business = intake.get("business_information", {})
+    advertising = intake.get("advertising_strategy", {})
+    income = intake.get("income", {})
+    expenses = intake.get("expenses", {})
+
+    typed_fields = [
+        ("business_information.funding_amount", business.get("funding_amount")),
+        ("advertising_strategy.marketing_budget", advertising.get("marketing_budget")),
+        ("income.beginning_balance", income.get("beginning_balance")),
+        ("income.monthly_revenue_projection", income.get("monthly_revenue_projection")),
+        ("income.annual_revenue_projection", income.get("annual_revenue_projection")),
+        ("expenses.payroll", expenses.get("payroll")),
+        ("expenses.rent_utilities", expenses.get("rent_utilities")),
+        ("expenses.advertising_expense", expenses.get("advertising_expense")),
+        ("expenses.taxes", expenses.get("taxes")),
+    ]
+
+    for field_path, raw in typed_fields:
+        if raw is None or str(raw).strip() == "":
+            continue
+        if _to_float(raw) is None:
+            report.typed_issues.append(
+                f"{field_path} should include a parseable numeric value."
+            )
+
+
+def _run_cross_field_validation(intake: dict[str, Any], report: ValidationReport) -> None:
+    income = intake.get("income", {})
+    monthly = _to_float(income.get("monthly_revenue_projection"))
+    annual = _to_float(income.get("annual_revenue_projection"))
+
+    if monthly is not None and annual is not None:
+        projected_annual = monthly * 12
+        # 20% tolerance to account for ramp assumptions in free-form input
+        if annual and abs(projected_annual - annual) / annual > 0.20:
+            report.cross_field_issues.append(
+                "income.monthly_revenue_projection and income.annual_revenue_projection appear inconsistent (>20% delta)."
+            )

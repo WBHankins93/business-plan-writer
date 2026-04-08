@@ -15,10 +15,6 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    pass
 
 
 # ── Public API ──────────────────────────────────────────────────────────────
@@ -69,10 +65,6 @@ def _try_docx2pdf(docx_path: Path, pdf_path: Path) -> bool:
 
 # ── ReportLab fallback ──────────────────────────────────────────────────────
 
-_RE_H1 = re.compile(r"^##\s+(.+)$")
-_RE_H2 = re.compile(r"^###\s+(.+)$")
-_RE_TABLE_ROW = re.compile(r"^\|(.+)\|$")
-_RE_TABLE_SEP = re.compile(r"^\|[-| :]+\|$")
 _RE_BOLD = re.compile(r"\*\*(.+?)\*\*")
 
 
@@ -224,8 +216,6 @@ def _render_with_reportlab(docx_path: Path, pdf_path: Path) -> None:
 
 def _iter_blocks(doc):
     """Yield paragraph and table blocks in document order."""
-    from docx.oxml.ns import qn
-
     body = doc.element.body
     for child in body:
         tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
