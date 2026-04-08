@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from agents.prompt_utils import compact_json
 from llm_client import call_llm
 from prompts.loader import build_agent_identity_for
 from intake.schema import validate_intake
@@ -101,7 +102,7 @@ def run(intake: dict[str, Any]) -> dict[str, Any]:
     # Step 2: Build user prompt for LLM
     user_prompt = f"""
 INTAKE DATA:
-{json.dumps(intake, indent=2, default=str)}
+{compact_json(intake, max_chars=14000)}
 
 ---
 
@@ -116,6 +117,12 @@ Thin Tier 2 (structural — needs more detail):
 
 Missing Tier 3 (enhancement):
 {json.dumps(missing_t3, indent=2)}
+
+Typed validation issues:
+{json.dumps(schema_report.typed_issues, indent=2)}
+
+Cross-field issues:
+{json.dumps(schema_report.cross_field_issues, indent=2)}
 
 ---
 
@@ -134,6 +141,8 @@ Please review the intake and return your JSON quality report as instructed.
         "validation_report": {
             "completeness_score": schema_report.completeness_score,
             "summary": validation_summary,
+            "typed_issues": schema_report.typed_issues,
+            "cross_field_issues": schema_report.cross_field_issues,
         },
         "agent_1_report": agent_report,
     }

@@ -27,6 +27,7 @@ Usage
 """
 
 from pathlib import Path
+from functools import lru_cache
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -95,6 +96,7 @@ SAAS_TRIGGER_KEYWORDS = [
 # Core loader
 # ---------------------------------------------------------------------------
 
+@lru_cache(maxsize=64)
 def _read(path: Path) -> str:
     """Read a file, return empty string with warning if missing."""
     if not path.exists():

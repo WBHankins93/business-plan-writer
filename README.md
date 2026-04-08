@@ -58,6 +58,12 @@ venv/bin/python main.py --intake sample_intake/sample_client.json
 
 Output lands in `output/documents/` as both `.docx` and `.pdf`.
 
+Run tests:
+
+```bash
+python -m unittest discover -s tests -p "test_*.py"
+```
+
 ---
 
 ## CLI
@@ -66,6 +72,7 @@ Output lands in `output/documents/` as both `.docx` and `.pdf`.
 python main.py --intake <path>          Required. Path to client intake JSON.
                --output-dir <path>      Optional. Default: output/documents/
                --no-pdf                 Optional. Skip PDF, produce .docx only.
+               --allow-unready          Optional. Continue even if Agent 1 says intake is not ready.
 ```
 
 ---
@@ -87,6 +94,11 @@ LLM_MODEL_WRITER=claude-sonnet-4-6
 GROQ_API_KEY=...
 ANTHROPIC_API_KEY=...
 OPENAI_API_KEY=...
+
+# Reliability controls (optional)
+LLM_TIMEOUT_SECONDS=60
+LLM_MAX_RETRIES=3
+LLM_RETRY_BACKOFF_SECONDS=1.25
 ```
 
 Supported providers: `groq` · `anthropic` · `openai`

@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from agents.prompt_utils import truncate_text
 from llm_client import call_llm
 from prompts.loader import build_agent_identity_for
 
@@ -111,7 +112,7 @@ Thin fields: {json.dumps(agent_1_report.get("thin_fields", []), indent=2)}
 ---
 
 BUSINESS PLAN TO REVIEW:
-{business_plan}
+{truncate_text(business_plan, max_chars=20000)}
 
 ---
 
