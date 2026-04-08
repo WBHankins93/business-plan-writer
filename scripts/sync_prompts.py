@@ -49,16 +49,32 @@ FILES_TO_SYNC = [
         "02_personas/advisory/decision-anchor.md",
     ),
     (
+        "02_personas/advisory/startup-operator.md",
+        "02_personas/advisory/startup-operator.md",
+    ),
+    (
         "02_personas/advisory/finance-dragon.md",
         "02_personas/advisory/finance-dragon.md",
+    ),
+    (
+        "02_personas/advisory/financial-analyst.md",
+        "02_personas/advisory/financial-analyst.md",
     ),
     (
         "02_personas/advisory/pattern-seer.md",
         "02_personas/advisory/pattern-seer.md",
     ),
     (
+        "02_personas/advisory/gtm-strategist.md",
+        "02_personas/advisory/gtm-strategist.md",
+    ),
+    (
         "02_personas/advisory/red-team.md",
         "02_personas/advisory/red-team.md",
+    ),
+    (
+        "02_personas/advisory/vc-partner.md",
+        "02_personas/advisory/vc-partner.md",
     ),
     # Business personas
     (

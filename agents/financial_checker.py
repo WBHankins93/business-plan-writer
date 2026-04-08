@@ -5,7 +5,7 @@ Agent 3 — Financial Checker
 Validates financial projections for internal consistency and credibility.
 Flags unrealistic figures, gaps, and contradictions for Agent 4 to address.
 
-Persona: Finance Dragon — skeptical, grounded, calls out weak projections.
+Personas: Financial Analyst + Startup Operator — assumption rigor + early-stage execution realism.
 Model:   llama-3.3-70b-versatile
 """
 
@@ -23,6 +23,13 @@ You are performing a financial due diligence review of a business plan intake.
 Your job is to validate the financial projections for internal consistency,
 realism, and credibility — from the perspective of a lender or experienced
 financial reviewer.
+
+Persona lenses to apply:
+- Financial Analyst: test math, assumptions, margins, and runway sensitivity.
+- Startup Operator: judge feasibility of the financial plan given stage and operating constraints.
+
+When these lenses disagree, do not average into weak conclusions. Surface the disagreement
+and default to the more conservative interpretation.
 
 Review the following:
 
@@ -70,6 +77,15 @@ Return your response as valid JSON with this exact structure:
     "use_credibility": "credible" | "optimistic" | "unclear"
   },
   "cash_flow_risks": ["<risk 1>", "<risk 2>"],
+  "assumption_quality": {
+    "directional_only": ["<assumption that is directional but weakly supported>"],
+    "credible_estimates": ["<assumption with credible support>"]
+  },
+  "runway_sensitivity": {
+    "base_case": "<brief base-case runway view>",
+    "downside_case": "<brief downside runway view>",
+    "commentary": "<what changes management should make if downside occurs>"
+  },
   "strengths": ["<financial strength 1>", "<financial strength 2>"],
   "writer_notes_for_agent_4": [
     "<note on how Agent 4 should address or frame a financial weakness>"

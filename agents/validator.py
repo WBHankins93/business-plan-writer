@@ -5,7 +5,7 @@ Agent 1 — Intake Validator
 Validates completeness of the intake JSON, identifies thin/missing fields,
 infers context where possible, and produces a quality report for downstream agents.
 
-Persona: Decision Anchor — closes loops, doesn't leave things open-ended.
+Persona: Startup Operator — scope realism, actionability, and execution readiness.
 Model:   llama-3.1-8b-instant (validation task — speed over depth)
 """
 
@@ -31,12 +31,19 @@ You have received:
 
 Your job:
 
+Startup Operator lens requirements:
+- Evaluate whether the proposed scope is realistically executable for an early-stage business.
+- Flag over-scoped or non-actionable requests.
+- Separate clear facts from assumptions; do not present assumptions as facts.
+- Be conservative when evidence is weak.
+
 1. REVIEW each flagged issue from the validation report.
 2. For Tier 1 (critical) missing fields: attempt to INFER the value from other available intake data. If you can reasonably infer it, provide the inferred value and note it as "[INFERRED]". If you cannot infer it, mark it as "[MISSING — REQUIRED]".
 3. For Tier 2 (structural) thin fields: flag them as "[THIN — needs follow-up]" and note what specific information would strengthen the section.
 4. For Tier 3 (enhancement) missing fields: mark as "[WRITER_NOTE: not provided]".
 5. Identify any CONTRADICTIONS in the intake data (e.g., funding amount inconsistency, dates that don't align).
-6. Produce an overall QUALITY ASSESSMENT.
+6. Add a concise ACTIONABILITY CHECK explaining whether this intake is actionable now.
+7. Produce an overall QUALITY ASSESSMENT.
 
 Return your response as valid JSON with this exact structure:
 {
@@ -57,6 +64,7 @@ Return your response as valid JSON with this exact structure:
     {"description": "<what contradicts what>", "recommendation": "<how to resolve>"}
   ],
   "quality_assessment": "<1-3 sentence overall quality assessment>",
+  "actionability_assessment": "<1-2 sentence operator assessment of execution readiness>",
   "ready_for_pipeline": <true or false>
 }
 

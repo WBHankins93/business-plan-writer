@@ -42,9 +42,13 @@ STANDARDS_PATH  = LIBRARY_ROOT / "01_response-standards" / "response-standards.m
 PERSONA_FILES = {
     # Advisory
     "decision_anchor":  "02_personas/advisory/decision-anchor.md",
+    "startup_operator": "02_personas/advisory/startup-operator.md",
     "finance_dragon":   "02_personas/advisory/finance-dragon.md",
+    "financial_analyst": "02_personas/advisory/financial-analyst.md",
     "pattern_seer":     "02_personas/advisory/pattern-seer.md",
+    "gtm_strategist":   "02_personas/advisory/gtm-strategist.md",
     "red_team":         "02_personas/advisory/red-team.md",
+    "vc_partner":       "02_personas/advisory/vc-partner.md",
 
     # Business
     "builder_refiner":          "02_personas/business/builder-refiner.md",
@@ -58,28 +62,28 @@ PERSONA_FILES = {
 # Each agent key maps to a list of persona keys loaded in order.
 # Empty list = foundation + standards only (no persona).
 #
-# Agent 1  — Validator          — Decision Anchor
-#             Closes contradiction loops instead of asking open-ended questions.
+# Agent 1  — Validator          — Startup Operator
+#             Tests completeness, actionability, and practical scope readiness.
 #
-# Agent 2  — Market Builder     — Pattern Seer
-#             Produces market intelligence, not just market information.
+# Agent 2  — Market Builder     — GTM Strategist + VC Partner
+#             Investor-grade market logic: ICP, channels, differentiation, traction realism.
 #
-# Agent 3  — Financial Checker  — Finance Dragon
-#             Skeptical financial validation; calls out weak projections.
+# Agent 3  — Financial Checker  — Financial Analyst + Startup Operator
+#             Grounded early-stage economics with explicit assumption quality checks.
 #
 # Agent 4  — Plan Writer        — Business Plan Architect (base)
 #             SaaS Founder added conditionally for tech/software clients.
 #
-# Agent 5  — Critic             — Red Team + Builder-Refiner (in order)
-#             Red Team finds problems; Builder-Refiner filters to what ships.
+# Agent 5  — Critic             — Red Team + VC Partner + GTM Strategist (in order)
+#             Stress-tests failure modes, investment quality, and go-to-market logic.
 
 AGENT_PERSONAS = {
-    "agent_1":         ["decision_anchor"],
-    "agent_2":         ["pattern_seer"],
-    "agent_3":         ["finance_dragon"],
+    "agent_1":         ["startup_operator"],
+    "agent_2":         ["gtm_strategist", "vc_partner"],
+    "agent_3":         ["financial_analyst", "startup_operator"],
     "agent_4":         ["business_plan_architect"],
     "agent_4_saas":    ["business_plan_architect", "saas_founder"],
-    "agent_5":         ["red_team", "builder_refiner"],
+    "agent_5":         ["red_team", "vc_partner", "gtm_strategist"],
 }
 
 # ---------------------------------------------------------------------------
