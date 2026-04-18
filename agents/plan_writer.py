@@ -162,6 +162,9 @@ def run(
     agent_1_output: dict[str, Any],
     agent_2_output: dict[str, Any],
     agent_3_output: dict[str, Any],
+    *,
+    revision_notes: str = "",
+    prior_draft: str = "",
 ) -> dict[str, Any]:
     """
     Run Agent 4 to write the complete business plan.
@@ -170,6 +173,8 @@ def run(
         agent_1_output: From agents/validator.py
         agent_2_output: From agents/market_builder.py
         agent_3_output: From agents/financial_checker.py
+        revision_notes: Optional critique instructions from Agent 5.
+        prior_draft: Optional first-pass draft to revise.
 
     Returns:
         dict with keys:
@@ -233,6 +238,19 @@ Write the complete professional business plan now.
 Follow the document structure and writing guidelines exactly.
 This is the document the client will present to their reader.
 """.strip()
+    if revision_notes:
+        user_prompt += (
+            "\n\n---\n\n"
+            "REVISION CONTEXT (from Agent 5 Critic):\n"
+            f"{revision_notes}\n\n"
+            "If prior draft content is included below, revise it in-place while preserving strengths.\n"
+            "Address critical issues directly and keep the document complete.\n"
+        )
+    if prior_draft:
+        user_prompt += (
+            "\n\nPRIOR DRAFT TO REVISE:\n"
+            f"{truncate_text(prior_draft, max_chars=20000)}"
+        )
 
     system_prompt = (
         build_agent_identity_for(agent_4_key) + "\n\n---\n\n" + _TASK_INSTRUCTIONS

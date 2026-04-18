@@ -5,3 +5,6 @@ python-docx
 python-dotenv
 rich
 reportlab
+docx2pdf
+fastapi
+uvicorn

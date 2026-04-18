@@ -70,7 +70,23 @@ def _run_with_retries(provider: str, operation: Callable[[], str]) -> str:
 
     for attempt in range(1, _LLM_MAX_RETRIES + 1):
         try:
-            return operation()
+            content = operation()
+            if not content or not str(content).strip():
+                raise LLMRequestError(f"{provider} returned an empty response body.")
+            return content
+        except TimeoutError as e:
+            last_error = e
+            is_final = attempt == _LLM_MAX_RETRIES
+            if is_final:
+                break
+
+            sleep_s = _LLM_RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1))
+            sleep_s += random.uniform(0.0, 0.25)
+            console.log(
+                f"[yellow]LLM timeout ({provider}) attempt {attempt}/{_LLM_MAX_RETRIES}; "
+                f"retrying in {sleep_s:.2f}s[/yellow]"
+            )
+            time.sleep(sleep_s)
         except Exception as e:  # noqa: BLE001 - provider SDK errors are not uniform
             last_error = e
             is_final = attempt == _LLM_MAX_RETRIES
