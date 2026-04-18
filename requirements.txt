@@ -8,3 +8,5 @@ reportlab
 docx2pdf
 fastapi
 uvicorn
+sqlalchemy
+psycopg[binary]
