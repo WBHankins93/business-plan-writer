@@ -1,0 +1,93 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: 220px 1fr 320px;
+  gap: 12px;
+  min-height: 100vh;
+  padding: 12px;
+}
+
+.panel {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.sidebar ul,
+.flags ul {
+  padding-left: 18px;
+}
+
+.form {
+  display: grid;
+  gap: 10px;
+}
+
+label {
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+}
+
+input,
+textarea {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 8px;
+  background: #fcfcfd;
+}
+
+button {
+  width: fit-content;
+  padding: 8px 12px;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  background: #1f2937;
+  color: #fff;
+}
+
+.preview {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fafafa;
+  padding: 12px;
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.error {
+  color: #b91c1c;
+}
+
+.exportRow {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0 14px;
+}
+
+.btn {
+  display: inline-block;
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  text-decoration: none;
+  color: #111827;
+  background: #f9fafb;
+}
+
+.btn.disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}

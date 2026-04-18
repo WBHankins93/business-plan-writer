@@ -6,7 +6,7 @@ Validates completeness of the intake JSON, identifies thin/missing fields,
 infers context where possible, and produces a quality report for downstream agents.
 
 Persona: Startup Operator — scope realism, actionability, and execution readiness.
-Model:   llama-3.1-8b-instant (validation task — speed over depth)
+Model:   llama-3.3-70b-versatile
 """
 
 from __future__ import annotations
@@ -14,8 +14,9 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from agents.json_response import AgentJSONError, parse_strict_json
 from agents.prompt_utils import compact_json
-from llm_client import call_llm
+from llm_client import LLMClientError, call_llm
 from prompts.loader import build_agent_identity_for
 from intake.schema import validate_intake
 
@@ -139,10 +140,10 @@ Please review the intake and return your JSON quality report as instructed.
 
     # Step 3: Call LLM
     system_prompt = build_agent_identity_for("agent_1") + "\n\n---\n\n" + _TASK_INSTRUCTIONS
-    raw_response = call_llm(system_prompt, user_prompt, model=_MODEL, temperature=0.3)
-
-    # Step 4: Parse LLM JSON response
-    agent_report = _parse_json_response(raw_response)
+    agent_report = _call_with_strict_json(
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+    )
 
     return {
         "validated_intake": intake,
@@ -154,24 +155,36 @@ Please review the intake and return your JSON quality report as instructed.
         },
         "agent_1_report": agent_report,
     }
-
-
-def _parse_json_response(raw: str) -> dict:
-    """Extract JSON from the LLM response, handling markdown code blocks."""
-    text = raw.strip()
-    # Strip markdown code fences if present
-    if text.startswith("```"):
-        lines = text.split("\n")
-        text = "\n".join(lines[1:])
-        if text.endswith("```"):
-            text = text[: text.rfind("```")]
+def _call_with_strict_json(*, system_prompt: str, user_prompt: str) -> dict[str, Any]:
+    """Call LLM and require valid JSON output with one retry."""
     try:
-        return json.loads(text.strip())
-    except json.JSONDecodeError:
-        # Fallback: return raw as a note
+        first = call_llm(system_prompt, user_prompt, model=_MODEL, temperature=0.3)
+    except LLMClientError as exc:
         return {
             "completeness_score": 0,
-            "quality_assessment": "Parse error — raw response below.",
-            "raw_response": raw,
+            "quality_assessment": "LLM provider error prevented validator output.",
+            "actionability_assessment": "Unable to assess due to provider failure.",
             "ready_for_pipeline": False,
+            "error": {"type": "llm_provider_error", "message": str(exc)},
         }
+
+    try:
+        return parse_strict_json(first)
+    except AgentJSONError:
+        retry_prompt = (
+            f"{user_prompt}\n\n"
+            "IMPORTANT: Your previous reply was not valid JSON. "
+            "Return valid JSON only, with no markdown or extra text."
+        )
+        try:
+            second = call_llm(system_prompt, retry_prompt, model=_MODEL, temperature=0.0)
+            return parse_strict_json(second)
+        except (LLMClientError, AgentJSONError) as exc:
+            return {
+                "completeness_score": 0,
+                "quality_assessment": "Validator returned invalid JSON after one retry.",
+                "actionability_assessment": "Unable to assess due to malformed model output.",
+                "ready_for_pipeline": False,
+                "error": {"type": "invalid_json_response", "message": str(exc)},
+                "raw_response": first,
+            }

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from datetime import date
 from pathlib import Path
@@ -43,6 +44,19 @@ def _fail(msg: str) -> None:
 
 def _info(msg: str) -> None:
     console.print(f"  [dim]{msg}[/dim]")
+
+
+def _slugify(value: str) -> str:
+    cleaned = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+    return cleaned or "client"
+
+
+def _write_json(path: Path, payload: dict) -> None:
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def _write_text(path: Path, payload: str) -> None:
+    path.write_text(payload, encoding="utf-8")
 
 
 def main() -> int:
@@ -115,8 +129,13 @@ def main() -> int:
     business_name = (
         intake.get("business_information", {}).get("business_name", "Unknown Business")
     )
+    client_slug = _slugify(business_name)
+    artifact_dir = Path("output") / client_slug
+    artifact_dir.mkdir(parents=True, exist_ok=True)
     business_info = intake.get("business_information", {})
-    intake_date = business_info.get("year_founded") or business_info.get("founding_date")
+    intake_date = intake.get("_meta", {}).get("intake_date")
+    if not intake_date:
+        intake_date = business_info.get("year_founded") or business_info.get("founding_date")
 
     _ok(f"Intake loaded: {business_name}")
     console.print()
@@ -126,6 +145,7 @@ def main() -> int:
     import agents.validator as validator
 
     agent_1_output = validator.run(intake)
+    _write_json(artifact_dir / "raw_agent_1.json", agent_1_output)
     a1_report = agent_1_output.get("agent_1_report", {})
     score = a1_report.get("completeness_score", "?")
     ready = a1_report.get("ready_for_pipeline", True)
@@ -156,6 +176,7 @@ def main() -> int:
     import agents.market_builder as market_builder
 
     agent_2_output = market_builder.run(agent_1_output)
+    _write_text(artifact_dir / "raw_agent_2.md", agent_2_output.get("market_analysis", ""))
     market_len = len(agent_2_output.get("market_analysis", ""))
     _ok(f"Market analysis generated ({market_len:,} characters)")
     console.print()
@@ -165,6 +186,7 @@ def main() -> int:
     import agents.financial_checker as financial_checker
 
     agent_3_output = financial_checker.run(agent_1_output)
+    _write_json(artifact_dir / "raw_agent_3.json", agent_3_output)
     fv = agent_3_output.get("financial_validation", {})
     credibility = fv.get("overall_financial_credibility", "?")
     _ok(f"Financial credibility rating: {credibility}")
@@ -180,6 +202,7 @@ def main() -> int:
     import agents.plan_writer as plan_writer
 
     agent_4_output = plan_writer.run(agent_1_output, agent_2_output, agent_3_output)
+    _write_text(artifact_dir / "raw_agent_4.md", agent_4_output.get("business_plan", ""))
     plan_len = len(agent_4_output.get("business_plan", ""))
     agent_key_used = agent_4_output.get("agent_4_key", "agent_4")
     _ok(f"Business plan written ({plan_len:,} characters, persona: {agent_key_used})")
@@ -190,6 +213,7 @@ def main() -> int:
     import agents.critic as critic
 
     agent_5_output = critic.run(agent_1_output, agent_4_output)
+    _write_json(artifact_dir / "raw_agent_5.json", agent_5_output)
     critique = agent_5_output.get("critique", {})
     approved = agent_5_output.get("approved", False)
     recommendation = critique.get("recommendation", "unknown")
@@ -213,6 +237,22 @@ def main() -> int:
 
     if not approved:
         _warn("Plan not approved — review critic output. Continuing to output anyway.")
+
+    approval_status = str(critique.get("approval_status", "")).upper()
+    if approval_status != "GO":
+        _step("Agent 4 — Revision Pass")
+        revised_output = plan_writer.run(
+            agent_1_output,
+            agent_2_output,
+            agent_3_output,
+            revision_notes=critique.get("revision_notes", ""),
+            prior_draft=agent_4_output.get("business_plan", ""),
+        )
+        revised_plan = revised_output.get("business_plan", "")
+        _write_text(artifact_dir / "business_plan_revised.md", revised_plan)
+        agent_4_output = revised_output
+        _ok("Revision pass complete from critic feedback")
+        console.print()
 
     console.print()
 

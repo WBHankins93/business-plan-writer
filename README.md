@@ -140,4 +140,63 @@ The intake schema covers **12 sections** and **60+ fields**, classified into thr
 
 Phase 1 — core pipeline — is complete and end-to-end functional.
 
-**Phase 2** (in development): CLI intake questionnaire + Next.js web app with FastAPI backend.
+**Phase 2** (in development): Web intake + FastAPI orchestration + run tracking.
+
+---
+
+## Product / Backend Roadmap (No Dates)
+
+### Priority 1 — Runtime reliability
+- Introduce persistent run tracking (`run_id`, status, errors, outputs).
+- Keep the current CLI pipeline and API aligned while we evolve toward deeper service integration.
+- Improve step-level progress reporting from static “complete” states to real execution updates.
+
+### Priority 2 — Database-backed execution visibility
+- Add database persistence for each run and expose run lookup endpoint(s).
+- Store run metadata, status transitions, and API response payload snapshots.
+- Keep generated artifacts on local disk for now and index them via run records.
+
+### Priority 3 — API hardening (auth deferred)
+- Add standardized API error envelopes and health endpoints.
+- Tighten request validation progressively while preserving contributor friendliness.
+- Add guardrails for runtime failures and clearer operator diagnostics.
+
+### Priority 4 — Open-source contributor experience
+- Keep setup lightweight and documented.
+- Make local backend/web runs reproducible via clear environment config.
+- Expand tests around API lifecycle and pipeline failure paths.
+
+### Priority 5 — SaaS foundation (future)
+- Add billing/multi-tenant controls later.
+- Add auth later (intentionally deferred for current open-source phase).
+- Expand storage strategy from local artifacts to managed object storage when needed.
+
+---
+
+## Neon Database Setup
+
+The backend now supports database-backed run tracking via `DATABASE_URL`.
+
+### 1) Create a Neon project + database
+- In Neon, create a project and database (default `public` schema is fine).
+- Copy the **pooled** connection string.
+
+### 2) Add to `.env.local`
+
+```bash
+DATABASE_URL=postgresql+psycopg://<user>:<password>@<host>/<db>?sslmode=require
+```
+
+> If `DATABASE_URL` is not set, the backend falls back to local SQLite at:
+> `output/business_plan_writer.db`
+
+### 3) What to add in Neon
+- A database user with read/write privileges.
+- SSL required (Neon default).
+- No manual table creation required for now: the API creates the `runs` table on startup.
+
+### Current backend endpoints
+- `POST /generate-plan` → execute pipeline, persist run, return result + `run_id`
+- `GET /runs/{run_id}` → fetch persisted run status/result
+- `GET /artifacts/{client_slug}/{filename}` → download generated artifacts
+- `GET /healthz` → health check
