@@ -200,3 +200,29 @@ DATABASE_URL=postgresql+psycopg://<user>:<password>@<host>/<db>?sslmode=require
 - `GET /runs/{run_id}` → fetch persisted run status/result
 - `GET /artifacts/{client_slug}/{filename}` → download generated artifacts
 - `GET /healthz` → health check
+---
+
+## Production Readiness Additions
+
+The project now includes the first production-readiness foundations:
+
+- Container packaging for the FastAPI backend and Next.js frontend (`Dockerfile.api`, `web/Dockerfile`, `docker-compose.yml`).
+- CI for Python unit tests and frontend production builds (`.github/workflows/ci.yml`).
+- Explicit frontend TypeScript build dependencies and a `typecheck` script.
+- Asynchronous plan generation: `POST /generate-plan` returns `202 Accepted` with a `run_id`, and clients poll `GET /runs/{run_id}`.
+- Persisted run progress via `progress_json` on run records.
+- API-key enforcement when `BUSINESS_PLAN_API_KEY` is set, plus CORS configuration and Alembic migration scaffolding.
+
+Before production startup, run:
+
+```bash
+alembic upgrade head
+```
+
+For local production-like execution:
+
+```bash
+docker compose up --build
+```
+
+See `docs/production-readiness.md` for operator notes and remaining caveats.

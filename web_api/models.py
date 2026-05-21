@@ -16,6 +16,7 @@ class Run(Base):
     client_slug: Mapped[str] = mapped_column(String(120), index=True)
     status: Mapped[str] = mapped_column(String(24), index=True)
     intake_json: Mapped[dict] = mapped_column(JSON)
+    progress_json: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
     result_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     error_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
