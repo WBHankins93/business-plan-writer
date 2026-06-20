@@ -4,7 +4,20 @@ import { FormEvent, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
 type StepState = { step: number; name: string; status: string };
-type FieldIssue = { field?: string } | string;
+type RunResponse = {
+  run_id: string;
+  client_slug: string;
+  status: string;
+  progress?: StepState[];
+  result?: GenerateResult | null;
+};
+type GenerateResult = {
+  progress?: StepState[];
+  draft_markdown?: string;
+  validation_warnings?: ValidationWarnings;
+  critic?: CriticOutput;
+  exports?: { docx: string | null; pdf: string | null };
+};
 type ValidationWarnings = {
   missing_required: FieldIssue[];
   thin_fields: FieldIssue[];
@@ -17,8 +30,21 @@ type CriticOutput = {
   approval_status?: string;
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
-const SECTIONS = [
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "";
+
+const authHeaders = (): HeadersInit => {
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  if (API_KEY) headers["X-API-Key"] = API_KEY;
+  return headers;
+};
+
+const artifactUrl = (path: string | null) => {
+  if (!path) return null;
+  return path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
+};
+
+const SECTION_KEYS = [
   "business_information",
   "management_details",
   "product_service_summary",
@@ -82,6 +108,7 @@ export default function HomePage() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [runId, setRunId] = useState("");
 
   const completed = useMemo(
     () => SECTIONS.filter((section) => sections[section]?.trim()).length,
@@ -109,29 +136,53 @@ export default function HomePage() {
     intake._meta = { workflow_route: route };
 
     try {
-      setSteps(statusSteps("running"));
-      const res = await fetch(`${API_BASE}/generate-plan`, {
+      const res = await fetch(`${API_BASE_URL}/generate-plan`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({ intake }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.detail?.message || "Failed to generate plan.");
+      const data: RunResponse = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          typeof data === "object" && data && "detail" in data
+            ? JSON.stringify((data as { detail?: unknown }).detail)
+            : "Failed to queue plan generation."
+        );
+      }
+      setRunId(data.run_id);
+      setSteps(data.progress || []);
 
-      setSteps(data.progress || statusSteps("complete"));
-      setDraft(data.draft_markdown || "");
-      setWarnings(data.validation_warnings || { missing_required: [], thin_fields: [] });
-      setCritic(data.critic || {});
-      setExports({
-        docx: data.exports?.docx ? `${API_BASE}${data.exports.docx}` : null,
-        pdf: data.exports?.pdf ? `${API_BASE}${data.exports.pdf}` : null,
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-      setSteps(statusSteps("failed"));
+      const finalRun = await pollRun(data.run_id);
+      const result = finalRun.result;
+      setSteps(result?.progress || finalRun.progress || []);
+      setDraft(result?.draft_markdown || "");
+      setWarnings(result?.validation_warnings || { missing_required: [], thin_fields: [] });
+      setCritic(result?.critic || {});
+      setExports(result?.exports || { docx: null, pdf: null });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      setError(msg);
+      setSteps((prev) => prev.map((s) => ({ ...s, status: "failed" })));
     } finally {
       setLoading(false);
     }
+  };
+
+  const pollRun = async (id: string): Promise<RunResponse> => {
+    for (let attempt = 0; attempt < 180; attempt += 1) {
+      const res = await fetch(`${API_BASE_URL}/runs/${id}`, {
+        headers: API_KEY ? { "X-API-Key": API_KEY } : undefined,
+      });
+      const data: RunResponse = await res.json();
+      if (!res.ok) throw new Error("Failed to load run status.");
+      setSteps(data.progress || []);
+      if (data.status === "succeeded") return data;
+      if (data.status === "failed") {
+        throw new Error("Pipeline execution failed. Review server logs or run details.");
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+    throw new Error("Plan generation timed out while waiting for completion.");
   };
 
   return (
@@ -162,13 +213,9 @@ export default function HomePage() {
       </aside>
 
       <section className="panel main">
-        <div className="sectionHeader">
-          <div>
-            <h2>Client Intake</h2>
-            <p>{completed}/{SECTIONS.length} sections filled</p>
-          </div>
-          <span className="badge">Recommended: efficient 5-agent pass</span>
-        </div>
+        <h1>Business Plan Writer</h1>
+        <p>Complete intake, generate draft, and review before export.</p>
+        {runId && <p>Run ID: <code>{runId}</code></p>}
 
         <form onSubmit={onSubmit} className="form">
           <label>
@@ -218,6 +265,20 @@ export default function HomePage() {
           </button>
         </form>
         {error && <p className="error">{error}</p>}
+
+        <div className="exportRow">
+          <a className={exports.docx ? "btn" : "btn disabled"} href={artifactUrl(exports.docx) || "#"}>
+            Export DOCX
+          </a>
+          <a className={exports.pdf ? "btn" : "btn disabled"} href={artifactUrl(exports.pdf) || "#"}>
+            Export PDF
+          </a>
+        </div>
+
+        <h2>Draft Preview</h2>
+        <article className="preview">
+          <ReactMarkdown>{draft || "_No draft generated yet._"}</ReactMarkdown>
+        </article>
       </section>
 
       <aside className="panel flags">

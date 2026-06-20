@@ -34,3 +34,10 @@ build/
 .idea/
 *.swp
 *.swo
+
+# Web build/dependencies
+web/node_modules/
+web/.next/
+output/*.db
+output/*.db-*
+web/tsconfig.tsbuildinfo
