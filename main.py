@@ -14,14 +14,33 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 from datetime import date
 from pathlib import Path
 
-from rich.console import Console
-from rich.panel import Panel
-from rich.rule import Rule
+try:
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.rule import Rule
+except ModuleNotFoundError:
+    class Console:  # type: ignore[no-redef]
+        def print(self, *args, **kwargs) -> None:
+            print(*args)
+
+        def log(self, *args, **kwargs) -> None:
+            print(*args)
+
+    class Panel:  # type: ignore[no-redef]
+        @staticmethod
+        def fit(content: str, **kwargs) -> str:
+            return content
+
+    class Rule:  # type: ignore[no-redef]
+        def __init__(self, title: str = "", **kwargs) -> None:
+            self.title = title
+
+        def __str__(self) -> str:
+            return self.title
 
 console = Console()
 
@@ -44,11 +63,6 @@ def _fail(msg: str) -> None:
 
 def _info(msg: str) -> None:
     console.print(f"  [dim]{msg}[/dim]")
-
-
-def _slugify(value: str) -> str:
-    cleaned = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
-    return cleaned or "client"
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -87,6 +101,11 @@ def main() -> int:
             "Allow pipeline to continue when Agent 1 marks intake as not ready. "
             "Default behavior is to stop early."
         ),
+    )
+    parser.add_argument(
+        "--revise",
+        action="store_true",
+        help="Run an optional Agent 4 revision pass when Agent 5 does not return GO.",
     )
     args = parser.parse_args()
 
@@ -129,8 +148,7 @@ def main() -> int:
     business_name = (
         intake.get("business_information", {}).get("business_name", "Unknown Business")
     )
-    client_slug = _slugify(business_name)
-    artifact_dir = Path("output") / client_slug
+    artifact_dir = output_dir
     artifact_dir.mkdir(parents=True, exist_ok=True)
     business_info = intake.get("business_information", {})
     intake_date = intake.get("_meta", {}).get("intake_date")
@@ -239,7 +257,7 @@ def main() -> int:
         _warn("Plan not approved — review critic output. Continuing to output anyway.")
 
     approval_status = str(critique.get("approval_status", "")).upper()
-    if approval_status != "GO":
+    if approval_status != "GO" and args.revise:
         _step("Agent 4 — Revision Pass")
         revised_output = plan_writer.run(
             agent_1_output,
@@ -253,6 +271,8 @@ def main() -> int:
         agent_4_output = revised_output
         _ok("Revision pass complete from critic feedback")
         console.print()
+    elif approval_status != "GO":
+        _warn("Revision pass skipped. Re-run with --revise to generate a revised draft.")
 
     console.print()
 
