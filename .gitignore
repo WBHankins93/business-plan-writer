@@ -15,6 +15,10 @@ output/documents/
 sessions/
 intake/progress/
 
+# Node / web app
+node_modules/
+.next/
+
 # Python
 __pycache__/
 *.py[cod]
