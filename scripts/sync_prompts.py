@@ -179,15 +179,20 @@ def main():
         local_path = LOCAL_LIBRARY_ROOT / local_rel_path
         print(f"  {local_rel_path}")
 
+        local_content = read_local(local_path)
+
         # Fetch remote
         remote_content = fetch_remote(github_path)
         if remote_content is None:
-            print(f"    ✗ Failed to fetch — skipping")
-            results["failed"] += 1
+            if local_content is None:
+                print(f"    ✗ Failed to fetch and no local copy exists")
+                results["failed"] += 1
+            else:
+                print(f"    → Remote unavailable; keeping local copy")
+                results["skipped"] += 1
             continue
 
         # Compare with local
-        local_content = read_local(local_path)
         status = diff_summary(local_content, remote_content)
         print(f"    → {status}")
 
