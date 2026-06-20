@@ -14,9 +14,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from agents.json_response import AgentJSONError, parse_strict_json
+from agents.json_response import call_json_agent
 from agents.prompt_utils import compact_json
-from llm_client import LLMClientError, call_llm
 from prompts.loader import build_agent_identity_for
 
 _TASK_INSTRUCTIONS = """
@@ -141,40 +140,16 @@ Do not accept vague projections at face value — if the math doesn't work, say 
 """.strip()
 
     system_prompt = build_agent_identity_for("agent_3") + "\n\n---\n\n" + _TASK_INSTRUCTIONS
-    financial_validation = _call_with_strict_json(
+    financial_validation = call_json_agent(
         system_prompt=system_prompt,
         user_prompt=user_prompt,
+        temperature=0.3,
+        fallback={
+            "overall_financial_credibility": "unknown",
+            "financial_summary_narrative": "Financial checker could not produce a usable JSON review.",
+        },
     )
 
     return {
         "financial_validation": financial_validation,
     }
-def _call_with_strict_json(*, system_prompt: str, user_prompt: str) -> dict[str, Any]:
-    """Call LLM and require valid JSON output with one retry."""
-    try:
-        first = call_llm(system_prompt, user_prompt, temperature=0.3)
-    except LLMClientError as exc:
-        return {
-            "overall_financial_credibility": "unknown",
-            "financial_summary_narrative": "LLM provider error prevented financial review.",
-            "error": {"type": "llm_provider_error", "message": str(exc)},
-        }
-
-    try:
-        return parse_strict_json(first)
-    except AgentJSONError:
-        retry_prompt = (
-            f"{user_prompt}\n\n"
-            "IMPORTANT: Your previous reply was not valid JSON. "
-            "Return valid JSON only, with no markdown or extra text."
-        )
-        try:
-            second = call_llm(system_prompt, retry_prompt, temperature=0.0)
-            return parse_strict_json(second)
-        except (LLMClientError, AgentJSONError) as exc:
-            return {
-                "overall_financial_credibility": "unknown",
-                "financial_summary_narrative": "Financial checker returned invalid JSON after one retry.",
-                "error": {"type": "invalid_json_response", "message": str(exc)},
-                "raw_response": first,
-            }

@@ -14,9 +14,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from agents.json_response import AgentJSONError, parse_strict_json
+from agents.json_response import call_json_agent
 from agents.prompt_utils import truncate_text
-from llm_client import LLMClientError, call_llm
 from prompts.loader import build_agent_identity_for
 
 _TASK_INSTRUCTIONS = """
@@ -140,9 +139,17 @@ Judge this plan as a skeptical lender or grant committee reviewer would.
 """.strip()
 
     system_prompt = build_agent_identity_for("agent_5") + "\n\n---\n\n" + _TASK_INSTRUCTIONS
-    critique = _call_with_strict_json(
+    critique = call_json_agent(
         system_prompt=system_prompt,
         user_prompt=user_prompt,
+        temperature=0.4,
+        fallback={
+            "confidence_score": 0,
+            "approval_status": "NO-GO",
+            "scores": {},
+            "recommendation": "no-go",
+            "overall_assessment": "Critic could not produce a usable JSON review.",
+        },
     )
     approved = critique.get("recommendation") == "go"
 
@@ -150,38 +157,3 @@ Judge this plan as a skeptical lender or grant committee reviewer would.
         "critique": critique,
         "approved": approved,
     }
-def _call_with_strict_json(*, system_prompt: str, user_prompt: str) -> dict[str, Any]:
-    """Call LLM and require valid JSON output with one retry."""
-    try:
-        first = call_llm(system_prompt, user_prompt, temperature=0.4)
-    except LLMClientError as exc:
-        return {
-            "confidence_score": 0,
-            "approval_status": "NO-GO",
-            "scores": {},
-            "recommendation": "no-go",
-            "overall_assessment": "LLM provider error prevented quality critique.",
-            "error": {"type": "llm_provider_error", "message": str(exc)},
-        }
-
-    try:
-        return parse_strict_json(first)
-    except AgentJSONError:
-        retry_prompt = (
-            f"{user_prompt}\n\n"
-            "IMPORTANT: Your previous reply was not valid JSON. "
-            "Return valid JSON only, with no markdown or extra text."
-        )
-        try:
-            second = call_llm(system_prompt, retry_prompt, temperature=0.0)
-            return parse_strict_json(second)
-        except (LLMClientError, AgentJSONError) as exc:
-            return {
-                "confidence_score": 0,
-                "approval_status": "NO-GO",
-                "scores": {},
-                "recommendation": "no-go",
-                "overall_assessment": "Critic returned invalid JSON after one retry.",
-                "error": {"type": "invalid_json_response", "message": str(exc)},
-                "raw_response": first,
-            }
