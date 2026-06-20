@@ -14,9 +14,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from agents.json_response import AgentJSONError, parse_strict_json
+from agents.json_response import call_json_agent
 from agents.prompt_utils import compact_json
-from llm_client import LLMClientError, call_llm
 from prompts.loader import build_agent_identity_for
 from intake.schema import validate_intake
 
@@ -140,9 +139,17 @@ Please review the intake and return your JSON quality report as instructed.
 
     # Step 3: Call LLM
     system_prompt = build_agent_identity_for("agent_1") + "\n\n---\n\n" + _TASK_INSTRUCTIONS
-    agent_report = _call_with_strict_json(
+    agent_report = call_json_agent(
         system_prompt=system_prompt,
         user_prompt=user_prompt,
+        model=_MODEL,
+        temperature=0.3,
+        fallback={
+            "completeness_score": 0,
+            "quality_assessment": "Validator could not produce a usable JSON report.",
+            "actionability_assessment": "Unable to assess intake readiness.",
+            "ready_for_pipeline": False,
+        },
     )
 
     return {
@@ -155,36 +162,3 @@ Please review the intake and return your JSON quality report as instructed.
         },
         "agent_1_report": agent_report,
     }
-def _call_with_strict_json(*, system_prompt: str, user_prompt: str) -> dict[str, Any]:
-    """Call LLM and require valid JSON output with one retry."""
-    try:
-        first = call_llm(system_prompt, user_prompt, model=_MODEL, temperature=0.3)
-    except LLMClientError as exc:
-        return {
-            "completeness_score": 0,
-            "quality_assessment": "LLM provider error prevented validator output.",
-            "actionability_assessment": "Unable to assess due to provider failure.",
-            "ready_for_pipeline": False,
-            "error": {"type": "llm_provider_error", "message": str(exc)},
-        }
-
-    try:
-        return parse_strict_json(first)
-    except AgentJSONError:
-        retry_prompt = (
-            f"{user_prompt}\n\n"
-            "IMPORTANT: Your previous reply was not valid JSON. "
-            "Return valid JSON only, with no markdown or extra text."
-        )
-        try:
-            second = call_llm(system_prompt, retry_prompt, model=_MODEL, temperature=0.0)
-            return parse_strict_json(second)
-        except (LLMClientError, AgentJSONError) as exc:
-            return {
-                "completeness_score": 0,
-                "quality_assessment": "Validator returned invalid JSON after one retry.",
-                "actionability_assessment": "Unable to assess due to malformed model output.",
-                "ready_for_pipeline": False,
-                "error": {"type": "invalid_json_response", "message": str(exc)},
-                "raw_response": first,
-            }
