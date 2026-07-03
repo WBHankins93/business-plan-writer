@@ -3,6 +3,8 @@
 import { FormEvent, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
+type FieldIssue = { field: string; message: string };
+
 type StepState = { step: number; name: string; status: string };
 type RunResponse = {
   run_id: string;
@@ -44,7 +46,7 @@ const artifactUrl = (path: string | null) => {
   return path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
 };
 
-const SECTION_KEYS = [
+const SECTIONS = [
   "business_information",
   "management_details",
   "product_service_summary",
