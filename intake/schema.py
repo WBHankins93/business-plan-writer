@@ -196,6 +196,18 @@ def field_by_name(name: str) -> FieldDef | None:
     return None
 
 
+def canonicalize_intake(intake: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Keep only schema-defined sections and fields in their canonical shape."""
+    canonical: dict[str, dict[str, Any]] = {}
+    for field_def in SCHEMA:
+        canonical.setdefault(field_def.section, {})
+        section = intake.get(field_def.section, {})
+        canonical[field_def.section][field_def.name] = (
+            section.get(field_def.name) if isinstance(section, dict) else None
+        )
+    return canonical
+
+
 # ── Validation ─────────────────────────────────────────────────────────────────
 
 def is_thin(value: Any, tier: int) -> bool:
@@ -262,6 +274,7 @@ class ValidationReport:
 
 
 _NUMBER_RE = re.compile(r"[-+]?\d[\d,]*(?:\.\d+)?")
+_CURRENCY_RE = re.compile(r"\$\s*([-+]?\d[\d,]*(?:\.\d+)?)")
 
 
 def _to_float(value: Any) -> float | None:
@@ -273,11 +286,15 @@ def _to_float(value: Any) -> float | None:
     text = str(value).strip().lower()
     if not text:
         return None
-    match = _NUMBER_RE.search(text.replace("$", ""))
+    # Prefer a currency amount so labels such as "Year 1: $240,000" do not
+    # parse as the number 1.
+    currency_match = _CURRENCY_RE.search(text)
+    match = currency_match or _NUMBER_RE.search(text)
     if not match:
         return None
     try:
-        return float(match.group(0).replace(",", ""))
+        numeric = currency_match.group(1) if currency_match else match.group(0)
+        return float(numeric.replace(",", ""))
     except ValueError:
         return None
 
@@ -346,13 +363,64 @@ def _run_typed_validation(intake: dict[str, Any], report: ValidationReport) -> N
 
 def _run_cross_field_validation(intake: dict[str, Any], report: ValidationReport) -> None:
     income = intake.get("income", {})
-    monthly = _to_float(income.get("monthly_revenue_projection"))
-    annual = _to_float(income.get("annual_revenue_projection"))
+    monthly_raw = income.get("monthly_revenue_projection")
+    annual_raw = income.get("annual_revenue_projection")
+    monthly = _to_float(monthly_raw)
+    annual = _to_float(annual_raw)
 
-    if monthly is not None and annual is not None:
+    # A month-by-month schedule is already more precise than a single monthly
+    # run-rate, and comparing only its first number with the annual total creates
+    # a false mismatch. Only apply this check to a single monthly amount.
+    is_monthly_schedule = bool(
+        isinstance(monthly_raw, str)
+        and re.search(r"\b(?:month|m)\s*\d{1,2}\b", monthly_raw, re.IGNORECASE)
+    )
+    is_annual_schedule = bool(
+        isinstance(annual_raw, str)
+        and re.search(r"\byear\s*\d{1,2}\b", annual_raw, re.IGNORECASE)
+    )
+
+    if monthly is not None and annual is not None and not (is_monthly_schedule or is_annual_schedule):
         projected_annual = monthly * 12
         # 20% tolerance to account for ramp assumptions in free-form input
         if annual and abs(projected_annual - annual) / annual > 0.20:
             report.cross_field_issues.append(
                 "income.monthly_revenue_projection and income.annual_revenue_projection appear inconsistent (>20% delta)."
             )
+
+
+def intake_request_errors(intake: dict[str, Any]) -> list[dict[str, str]]:
+    """Return API-safe, field-level errors for a canonical intake request."""
+    _, report = validate_intake(intake)
+    errors: list[dict[str, str]] = []
+
+    for result in report.missing_tier1:
+        errors.append({
+            "field": f"{result.field.section}.{result.field.name}",
+            "label": result.field.label,
+            "message": f"{result.field.label} is required.",
+        })
+
+    by_path = {f"{item.section}.{item.name}": item for item in SCHEMA}
+    for issue in report.typed_issues:
+        field_path = issue.split(" should", 1)[0]
+        field_def = by_path.get(field_path)
+        label = field_def.label if field_def else field_path
+        errors.append({
+            "field": field_path,
+            "label": label,
+            "message": f"{label} must include a number.",
+        })
+
+    for issue in report.cross_field_issues:
+        field_path = "income.annual_revenue_projection"
+        errors.append({
+            "field": field_path,
+            "label": "Annual Revenue Projection",
+            "message": (
+                "Annual revenue should be within 20% of 12 times the monthly "
+                "projection, or include a month-by-month revenue schedule."
+            ),
+        })
+
+    return errors
