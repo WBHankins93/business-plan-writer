@@ -14,8 +14,10 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from agents.json_response import call_json_agent
+from agents.json_response import call_json_agent_strict, validate_agent_contract
 from agents.prompt_utils import compact_json
+from llm_client import RetryObserver, call_llm_detailed
+from pipeline.contracts import FinancialInput, FinancialOutput, ServiceResult
 from prompts.loader import build_agent_identity_for
 
 _TASK_INSTRUCTIONS = """
@@ -97,6 +99,101 @@ Be specific and direct. If numbers don't add up, say so plainly.
 """
 
 
+_REQUIRED_KEYS = (
+    "overall_financial_credibility",
+    "revenue_validation",
+    "expense_validation",
+    "break_even_validation",
+    "funding_validation",
+    "cash_flow_risks",
+    "assumption_quality",
+    "runway_sensitivity",
+    "strengths",
+    "writer_notes_for_agent_4",
+    "financial_summary_narrative",
+)
+
+
+class FinancialService:
+    """Test financial inputs and retain unsupported assumptions as structured data."""
+
+    def __init__(self, llm_call=call_llm_detailed) -> None:
+        self._llm_call = llm_call
+
+    def execute(
+        self,
+        request: FinancialInput,
+        *,
+        on_retry: RetryObserver | None = None,
+    ) -> ServiceResult[FinancialOutput]:
+        validation = request.validation
+        intake = validation.normalized_intake.data
+        financial_data = {
+            "business_information": intake.get("business_information", {}),
+            "product_service_summary": {
+                "pricing_structure": intake.get("product_service_summary", {}).get("pricing_structure"),
+            },
+            "financial_information": intake.get("financial_information", {}),
+            "income": intake.get("income", {}),
+            "expenses": intake.get("expenses", {}),
+            "milestones": intake.get("milestones", {}),
+        }
+        user_prompt = f"""
+FINANCIAL INTAKE DATA:
+{compact_json(financial_data, max_chars=10000)}
+
+---
+
+AGENT 1 QUALITY NOTES:
+{validation.quality_assessment}
+Thin fields: {json.dumps(validation.thin_fields, indent=2)}
+Missing fields: {json.dumps(validation.missing_required, indent=2)}
+
+---
+
+Perform the financial due diligence review. Do not accept vague projections at face value.
+""".strip()
+        system_prompt = build_agent_identity_for("agent_3") + "\n\n---\n\n" + _TASK_INSTRUCTIONS
+        result = call_json_agent_strict(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            required_keys=_REQUIRED_KEYS,
+            required_types={
+                "overall_financial_credibility": str,
+                "revenue_validation": dict,
+                "expense_validation": dict,
+                "break_even_validation": dict,
+                "funding_validation": dict,
+                "cash_flow_risks": list,
+                "assumption_quality": dict,
+                "runway_sensitivity": dict,
+                "strengths": list,
+                "writer_notes_for_agent_4": list,
+                "financial_summary_narrative": str,
+            },
+            temperature=0.3,
+            llm_call=self._llm_call,
+            on_retry=on_retry,
+        )
+        data = result.data
+        with validate_agent_contract(result.telemetry):
+            output = FinancialOutput(
+                overall_credibility=str(data["overall_financial_credibility"]),
+                revenue_validation=dict(data["revenue_validation"]),
+                expense_validation=dict(data["expense_validation"]),
+                break_even_validation=dict(data["break_even_validation"]),
+                funding_validation=dict(data["funding_validation"]),
+                cash_flow_risks=tuple(str(item) for item in data["cash_flow_risks"]),
+                assumption_quality=dict(data["assumption_quality"]),
+                runway_sensitivity=dict(data["runway_sensitivity"]),
+                strengths=tuple(str(item) for item in data["strengths"]),
+                writer_notes=tuple(str(item) for item in data["writer_notes_for_agent_4"]),
+                summary_narrative=str(data["financial_summary_narrative"]),
+                raw_agent_output=data,
+            )
+        return ServiceResult(output, result.telemetry)
+
+
 def run(agent_1_output: dict[str, Any]) -> dict[str, Any]:
     """
     Run Agent 3 financial validation on the validated intake.
@@ -108,48 +205,9 @@ def run(agent_1_output: dict[str, Any]) -> dict[str, Any]:
         dict with keys:
           - financial_validation: Structured financial review (dict)
     """
-    intake = agent_1_output["validated_intake"]
-    agent_1_report = agent_1_output.get("agent_1_report", {})
+    from pipeline.legacy import validator_output_from_legacy
 
-    # Extract financial sections
-    financial_data = {
-        "business_information": intake.get("business_information", {}),
-        "product_service_summary": {
-            "pricing_structure": intake.get("product_service_summary", {}).get("pricing_structure"),
-        },
-        "financial_information": intake.get("financial_information", {}),
-        "income": intake.get("income", {}),
-        "expenses": intake.get("expenses", {}),
-        "milestones": intake.get("milestones", {}),
-    }
-
-    user_prompt = f"""
-FINANCIAL INTAKE DATA:
-{compact_json(financial_data, max_chars=10000)}
-
----
-
-AGENT 1 QUALITY NOTES:
-{agent_1_report.get("quality_assessment", "No additional notes.")}
-Thin fields: {json.dumps(agent_1_report.get("thin_fields", []), indent=2)}
-
----
-
-Perform your financial due diligence review. Return the JSON report as instructed.
-Do not accept vague projections at face value — if the math doesn't work, say so.
-""".strip()
-
-    system_prompt = build_agent_identity_for("agent_3") + "\n\n---\n\n" + _TASK_INSTRUCTIONS
-    financial_validation = call_json_agent(
-        system_prompt=system_prompt,
-        user_prompt=user_prompt,
-        temperature=0.3,
-        fallback={
-            "overall_financial_credibility": "unknown",
-            "financial_summary_narrative": "Financial checker could not produce a usable JSON review.",
-        },
-    )
-
-    return {
-        "financial_validation": financial_validation,
-    }
+    result = FinancialService().execute(
+        FinancialInput(validator_output_from_legacy(agent_1_output))
+    ).value
+    return {"financial_validation": dict(result.raw_agent_output)}

@@ -16,7 +16,8 @@ import json
 from typing import Any
 
 from agents.prompt_utils import compact_json, truncate_text
-from llm_client import call_llm
+from llm_client import RetryObserver, call_llm_detailed
+from pipeline.contracts import ServiceResult, WriterInput, WriterOutput
 from prompts.loader import build_agent_identity_for, resolve_agent_4_key
 
 _TASK_INSTRUCTIONS = """
@@ -158,52 +159,39 @@ WRITING GUIDELINES:
 """
 
 
-def run(
-    agent_1_output: dict[str, Any],
-    agent_2_output: dict[str, Any],
-    agent_3_output: dict[str, Any],
-    *,
-    revision_notes: str = "",
-    prior_draft: str = "",
-) -> dict[str, Any]:
-    """
-    Run Agent 4 to write the complete business plan.
+class WriterService:
+    """Synthesize validated evidence without erasing its uncertainty markers."""
 
-    Args:
-        agent_1_output: From agents/validator.py
-        agent_2_output: From agents/market_builder.py
-        agent_3_output: From agents/financial_checker.py
-        revision_notes: Optional critique instructions from Agent 5.
-        prior_draft: Optional first-pass draft to revise.
+    def __init__(self, llm_call=call_llm_detailed) -> None:
+        self._llm_call = llm_call
 
-    Returns:
-        dict with keys:
-          - business_plan: Full business plan in markdown format
-          - agent_4_key: Which agent 4 variant was used
-    """
-    intake = agent_1_output["validated_intake"]
-    agent_1_report = agent_1_output.get("agent_1_report", {})
-    market_analysis = agent_2_output.get("market_analysis", "")
-    financial_validation = agent_3_output.get("financial_validation", {})
+    def execute(
+        self,
+        request: WriterInput,
+        *,
+        on_retry: RetryObserver | None = None,
+    ) -> ServiceResult[WriterOutput]:
+        validation = request.validation
+        market = request.market
+        financial = request.financial
+        intake = validation.normalized_intake.data
+        market_analysis = market.narrative
 
-    # Determine persona (SaaS or standard)
-    industry = intake.get("business_information", {}).get("industry", "")
-    agent_4_key = resolve_agent_4_key(industry)
+        industry = intake.get("business_information", {}).get("industry", "")
+        agent_4_key = resolve_agent_4_key(industry)
 
-    # Build financial summary for Agent 4
-    fin_summary = financial_validation.get(
-        "financial_summary_narrative",
-        "Financial projections provided — see intake data."
-    )
-    fin_credibility = financial_validation.get("overall_financial_credibility", "not assessed")
-    writer_notes = financial_validation.get("writer_notes_for_agent_4", [])
-    fin_issues = (
-        financial_validation.get("revenue_validation", {}).get("issues", [])
-        + financial_validation.get("expense_validation", {}).get("issues", [])
-        + financial_validation.get("cash_flow_risks", [])
-    )
+        fin_issues = (
+            list(financial.revenue_validation.get("issues", []))
+            + list(financial.expense_validation.get("issues", []))
+            + list(financial.cash_flow_risks)
+        )
+        uncertainty_notes = (
+            tuple(market.assumptions_and_risks)
+            + tuple(market.unsupported_claims)
+            + tuple(financial.assumption_quality.get("directional_only", []))
+        )
 
-    user_prompt = f"""
+        user_prompt = f"""
 FULL INTAKE DATA:
 {compact_json(intake, max_chars=14000)}
 
@@ -215,22 +203,25 @@ MARKET ANALYSIS (from Agent 2 — incorporate and refine, do not paste verbatim)
 ---
 
 FINANCIAL VALIDATION SUMMARY (from Agent 3):
-Overall credibility: {fin_credibility}
-Financial narrative: {fin_summary}
+Overall credibility: {financial.overall_credibility}
+Financial narrative: {financial.summary_narrative}
 
 Financial issues to address in writing:
 {json.dumps(fin_issues, indent=2)}
 
 Agent 3 writing notes:
-{json.dumps(writer_notes, indent=2)}
+{json.dumps(financial.writer_notes, indent=2)}
+
+UNSUPPORTED OR UNVALIDATED ASSUMPTIONS (must remain explicit):
+{json.dumps(uncertainty_notes, indent=2)}
 
 ---
 
 AGENT 1 QUALITY NOTES (thin or missing fields):
-{json.dumps(agent_1_report.get("thin_fields", []), indent=2)}
-{json.dumps(agent_1_report.get("missing_required", []), indent=2)}
+{json.dumps(validation.thin_fields, indent=2)}
+{json.dumps(validation.missing_required, indent=2)}
 Inferred fields (use with care, mark as such):
-{json.dumps(agent_1_report.get("inferred_fields", []), indent=2)}
+{json.dumps(validation.inferred_fields, indent=2)}
 
 ---
 
@@ -238,26 +229,66 @@ Write the complete professional business plan now.
 Follow the document structure and writing guidelines exactly.
 This is the document the client will present to their reader.
 """.strip()
-    if revision_notes:
-        user_prompt += (
-            "\n\n---\n\n"
-            "REVISION CONTEXT (from Agent 5 Critic):\n"
-            f"{revision_notes}\n\n"
-            "If prior draft content is included below, revise it in-place while preserving strengths.\n"
-            "Address critical issues directly and keep the document complete.\n"
-        )
-    if prior_draft:
-        user_prompt += (
-            "\n\nPRIOR DRAFT TO REVISE:\n"
-            f"{truncate_text(prior_draft, max_chars=20000)}"
-        )
+        if request.revision_notes:
+            user_prompt += (
+                "\n\n---\n\n"
+                "REVISION CONTEXT (from Agent 5 Critic):\n"
+                f"{request.revision_notes}\n\n"
+                "If prior draft content is included below, revise it in-place while preserving strengths.\n"
+                "Address critical issues directly and keep the document complete.\n"
+            )
+        if request.prior_draft:
+            user_prompt += (
+                "\n\nPRIOR DRAFT TO REVISE:\n"
+                f"{truncate_text(request.prior_draft, max_chars=20000)}"
+            )
 
-    system_prompt = (
-        build_agent_identity_for(agent_4_key) + "\n\n---\n\n" + _TASK_INSTRUCTIONS
+        system_prompt = (
+            build_agent_identity_for(agent_4_key) + "\n\n---\n\n" + _TASK_INSTRUCTIONS
+        )
+        response = self._llm_call(
+            system_prompt,
+            user_prompt,
+            writer=True,
+            temperature=0.7,
+            on_retry=on_retry,
+        )
+        output = WriterOutput(
+            markdown=response.text.strip(),
+            agent_key=agent_4_key,
+            revision_number=request.revision_number,
+            uncertainty_notes=tuple(str(item) for item in uncertainty_notes),
+        )
+        return ServiceResult(output, (response.telemetry,))
+
+
+def run(
+    agent_1_output: dict[str, Any],
+    agent_2_output: dict[str, Any],
+    agent_3_output: dict[str, Any],
+    *,
+    revision_notes: str = "",
+    prior_draft: str = "",
+) -> dict[str, Any]:
+    """Compatibility wrapper for the original dictionary-based API."""
+    from pipeline.legacy import (
+        financial_output_from_legacy,
+        market_output_from_legacy,
+        validator_output_from_legacy,
     )
-    business_plan = call_llm(system_prompt, user_prompt, writer=True, temperature=0.7)
 
+    validation = validator_output_from_legacy(agent_1_output)
+    result = WriterService().execute(
+        WriterInput(
+            validation=validation,
+            market=market_output_from_legacy(agent_2_output),
+            financial=financial_output_from_legacy(agent_3_output),
+            revision_notes=revision_notes or None,
+            prior_draft=prior_draft or None,
+            revision_number=1 if revision_notes else 0,
+        )
+    ).value
     return {
-        "business_plan": business_plan.strip(),
-        "agent_4_key": agent_4_key,
+        "business_plan": result.markdown,
+        "agent_4_key": result.agent_key,
     }

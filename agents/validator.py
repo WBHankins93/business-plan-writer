@@ -12,10 +12,20 @@ Model:   llama-3.3-70b-versatile
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from typing import Any
 
-from agents.json_response import call_json_agent
+from agents.json_response import call_json_agent_strict, validate_agent_contract
 from agents.prompt_utils import compact_json
+from llm_client import RetryObserver, call_llm_detailed
+from pipeline.contracts import (
+    NormalizedIntake,
+    RawIntake,
+    ServiceResult,
+    ValidationReport,
+    ValidatorInput,
+    ValidatorOutput,
+)
 from prompts.loader import build_agent_identity_for
 from intake.schema import validate_intake
 
@@ -72,43 +82,109 @@ Be direct and specific. Do not pad the response with filler.
 """
 
 
-def run(intake: dict[str, Any]) -> dict[str, Any]:
-    """
-    Run Agent 1 validation on the intake data.
+_REQUIRED_KEYS = (
+    "completeness_score",
+    "inferred_fields",
+    "thin_fields",
+    "missing_required",
+    "writer_notes",
+    "contradictions",
+    "quality_assessment",
+    "actionability_assessment",
+    "ready_for_pipeline",
+)
 
-    Args:
-        intake: Raw intake JSON loaded from file.
 
-    Returns:
-        dict with keys:
-          - validated_intake: The original intake (Agent 4 will use this directly)
-          - validation_report: Schema-level validation report summary
-          - agent_1_report: LLM quality analysis (dict)
-    """
-    # Step 1: Run schema validation
-    _, schema_report = validate_intake(intake)
+class ValidatorService:
+    """Validate raw intake and produce the only normalized downstream record."""
 
-    validation_summary = schema_report.summary()
-    missing_t1 = [
-        {"section": r.field.section, "field": r.field.name, "label": r.field.label}
-        for r in schema_report.missing_tier1
-    ]
-    thin_t2 = [
-        {
-            "section": r.field.section,
-            "field": r.field.name,
-            "label": r.field.label,
-            "current_value": str(r.value or "")[:200],
-        }
-        for r in schema_report.thin_tier2
-    ]
-    missing_t3 = [
-        {"section": r.field.section, "field": r.field.name, "label": r.field.label}
-        for r in schema_report.missing_tier3
-    ]
+    def __init__(self, llm_call=call_llm_detailed) -> None:
+        self._llm_call = llm_call
 
-    # Step 2: Build user prompt for LLM
-    user_prompt = f"""
+    def execute(
+        self,
+        request: ValidatorInput,
+        *,
+        on_retry: RetryObserver | None = None,
+    ) -> ServiceResult[ValidatorOutput]:
+        intake = deepcopy(dict(request.raw_intake.data))
+        _, schema_report = validate_intake(intake)
+
+        validation_summary = schema_report.summary()
+        missing_t1 = [
+            {"section": r.field.section, "field": r.field.name, "label": r.field.label}
+            for r in schema_report.missing_tier1
+        ]
+        thin_t2 = [
+            {
+                "section": r.field.section,
+                "field": r.field.name,
+                "label": r.field.label,
+                "current_value": str(r.value or "")[:200],
+            }
+            for r in schema_report.thin_tier2
+        ]
+        missing_t3 = [
+            {"section": r.field.section, "field": r.field.name, "label": r.field.label}
+            for r in schema_report.missing_tier3
+        ]
+
+        user_prompt = _build_user_prompt(
+            intake, schema_report, missing_t1, thin_t2, missing_t3
+        )
+        system_prompt = build_agent_identity_for("agent_1") + "\n\n---\n\n" + _TASK_INSTRUCTIONS
+        result = call_json_agent_strict(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            required_keys=_REQUIRED_KEYS,
+            required_types={
+                "completeness_score": int,
+                "inferred_fields": list,
+                "thin_fields": list,
+                "missing_required": list,
+                "writer_notes": list,
+                "contradictions": list,
+                "quality_assessment": str,
+                "actionability_assessment": str,
+                "ready_for_pipeline": bool,
+            },
+            model=_MODEL,
+            temperature=0.3,
+            llm_call=self._llm_call,
+            on_retry=on_retry,
+        )
+        report = result.data
+        with validate_agent_contract(result.telemetry):
+            output = ValidatorOutput(
+                normalized_intake=NormalizedIntake(intake),
+                validation_report=ValidationReport(
+                    completeness_score=schema_report.completeness_score,
+                    summary=validation_summary,
+                    typed_issues=tuple(schema_report.typed_issues),
+                    cross_field_issues=tuple(schema_report.cross_field_issues),
+                ),
+                completeness_score=int(report["completeness_score"]),
+                ready_for_pipeline=report["ready_for_pipeline"],
+                quality_assessment=str(report["quality_assessment"]),
+                actionability_assessment=str(report["actionability_assessment"]),
+                missing_required=tuple(report["missing_required"]),
+                thin_fields=tuple(report["thin_fields"]),
+                inferred_fields=tuple(report["inferred_fields"]),
+                writer_notes=tuple(report["writer_notes"]),
+                contradictions=tuple(report["contradictions"]),
+                raw_agent_output=report,
+            )
+        return ServiceResult(output, result.telemetry)
+
+
+def _build_user_prompt(
+    intake: dict[str, Any],
+    schema_report,
+    missing_t1: list[dict[str, Any]],
+    thin_t2: list[dict[str, Any]],
+    missing_t3: list[dict[str, Any]],
+) -> str:
+    return f"""
 INTAKE DATA:
 {compact_json(intake, max_chars=14000)}
 
@@ -137,28 +213,28 @@ Cross-field issues:
 Please review the intake and return your JSON quality report as instructed.
 """.strip()
 
-    # Step 3: Call LLM
-    system_prompt = build_agent_identity_for("agent_1") + "\n\n---\n\n" + _TASK_INSTRUCTIONS
-    agent_report = call_json_agent(
-        system_prompt=system_prompt,
-        user_prompt=user_prompt,
-        model=_MODEL,
-        temperature=0.3,
-        fallback={
-            "completeness_score": 0,
-            "quality_assessment": "Validator could not produce a usable JSON report.",
-            "actionability_assessment": "Unable to assess intake readiness.",
-            "ready_for_pipeline": False,
-        },
-    )
 
+def run(intake: dict[str, Any]) -> dict[str, Any]:
+    """
+    Run Agent 1 validation on the intake data.
+
+    Args:
+        intake: Raw intake JSON loaded from file.
+
+    Returns:
+        dict with keys:
+          - validated_intake: The original intake (Agent 4 will use this directly)
+          - validation_report: Schema-level validation report summary
+          - agent_1_report: LLM quality analysis (dict)
+    """
+    result = ValidatorService().execute(ValidatorInput(RawIntake(intake))).value
     return {
-        "validated_intake": intake,
+        "validated_intake": dict(result.normalized_intake.data),
         "validation_report": {
-            "completeness_score": schema_report.completeness_score,
-            "summary": validation_summary,
-            "typed_issues": schema_report.typed_issues,
-            "cross_field_issues": schema_report.cross_field_issues,
+            "completeness_score": result.validation_report.completeness_score,
+            "summary": result.validation_report.summary,
+            "typed_issues": list(result.validation_report.typed_issues),
+            "cross_field_issues": list(result.validation_report.cross_field_issues),
         },
-        "agent_1_report": agent_report,
+        "agent_1_report": dict(result.raw_agent_output),
     }

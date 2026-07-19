@@ -14,8 +14,10 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from agents.json_response import call_json_agent_strict, validate_agent_contract
 from agents.prompt_utils import compact_json
-from llm_client import call_llm
+from llm_client import RetryObserver, call_llm_detailed
+from pipeline.contracts import MarketInput, MarketOutput, ServiceResult
 from prompts.loader import build_agent_identity_for
 
 _TASK_INSTRUCTIONS = """
@@ -49,9 +51,106 @@ Your output should cover:
 6. **GTM & Traction Realism** — Specific distribution channels, channel risk, and what near-term traction is actually plausible.
 7. **Assumptions & Risks** — Critical assumptions that still need validation before scaling.
 
-Write in professional prose, not bullet points. Use section headers (## format).
-Length: 700–1000 words. Be specific. Vague analysis fails. Generic analysis fails.
+Return valid JSON with exactly these keys:
+{
+  "narrative": "<700-1000 word markdown market analysis with ## headings>",
+  "industry_overview": "<evidence-grounded summary>",
+  "target_segments": ["<segment>"],
+  "geographic_market": "<specific geographic assessment>",
+  "market_opportunity": "<specific opportunity>",
+  "market_timing": "<why now, or state that evidence is insufficient>",
+  "gtm_and_traction": "<channels, risks, and plausible early traction>",
+  "assumptions_and_risks": ["<unvalidated assumption or risk>"],
+  "unsupported_claims": ["<claim in the intake that lacks support>"]
+}
+Do not omit uncertainty to make the analysis sound more confident.
 """
+
+
+_REQUIRED_KEYS = (
+    "narrative",
+    "industry_overview",
+    "target_segments",
+    "geographic_market",
+    "market_opportunity",
+    "market_timing",
+    "gtm_and_traction",
+    "assumptions_and_risks",
+    "unsupported_claims",
+)
+
+
+class MarketService:
+    """Build structured market evidence from a validated intake."""
+
+    def __init__(self, llm_call=call_llm_detailed) -> None:
+        self._llm_call = llm_call
+
+    def execute(
+        self,
+        request: MarketInput,
+        *,
+        on_retry: RetryObserver | None = None,
+    ) -> ServiceResult[MarketOutput]:
+        validation = request.validation
+        intake = validation.normalized_intake.data
+        market_data = {
+            "business_information": intake.get("business_information", {}),
+            "product_service_summary": intake.get("product_service_summary", {}),
+            "market_analysis": intake.get("market_analysis", {}),
+            "advertising_strategy": intake.get("advertising_strategy", {}),
+            "competition": intake.get("competition", {}),
+        }
+        user_prompt = f"""
+BUSINESS INTAKE (market-relevant sections):
+{compact_json(market_data, max_chars=9000)}
+
+---
+
+AGENT 1 NOTES (quality issues to be aware of):
+Quality assessment: {validation.quality_assessment}
+Thin fields: {json.dumps(validation.thin_fields, indent=2)}
+Missing fields: {json.dumps(validation.missing_required, indent=2)}
+
+---
+
+Build the structured market analysis. Use only supplied evidence and preserve uncertainty.
+""".strip()
+        system_prompt = build_agent_identity_for("agent_2") + "\n\n---\n\n" + _TASK_INSTRUCTIONS
+        result = call_json_agent_strict(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            required_keys=_REQUIRED_KEYS,
+            required_types={
+                "narrative": str,
+                "industry_overview": str,
+                "target_segments": list,
+                "geographic_market": str,
+                "market_opportunity": str,
+                "market_timing": str,
+                "gtm_and_traction": str,
+                "assumptions_and_risks": list,
+                "unsupported_claims": list,
+            },
+            temperature=0.6,
+            llm_call=self._llm_call,
+            on_retry=on_retry,
+        )
+        data = result.data
+        with validate_agent_contract(result.telemetry):
+            output = MarketOutput(
+                narrative=str(data["narrative"]).strip(),
+                industry_overview=str(data["industry_overview"]),
+                target_segments=tuple(str(item) for item in data["target_segments"]),
+                geographic_market=str(data["geographic_market"]),
+                market_opportunity=str(data["market_opportunity"]),
+                market_timing=str(data["market_timing"]),
+                gtm_and_traction=str(data["gtm_and_traction"]),
+                assumptions_and_risks=tuple(str(item) for item in data["assumptions_and_risks"]),
+                unsupported_claims=tuple(str(item) for item in data["unsupported_claims"]),
+                raw_agent_output=data,
+            )
+        return ServiceResult(output, result.telemetry)
 
 
 def run(agent_1_output: dict[str, Any]) -> dict[str, Any]:
@@ -65,37 +164,9 @@ def run(agent_1_output: dict[str, Any]) -> dict[str, Any]:
         dict with keys:
           - market_analysis: Markdown-formatted market analysis text
     """
-    intake = agent_1_output["validated_intake"]
-    agent_1_report = agent_1_output.get("agent_1_report", {})
+    from pipeline.legacy import validator_output_from_legacy
 
-    # Extract the most relevant intake sections for market analysis
-    market_data = {
-        "business_information": intake.get("business_information", {}),
-        "product_service_summary": intake.get("product_service_summary", {}),
-        "market_analysis": intake.get("market_analysis", {}),
-        "advertising_strategy": intake.get("advertising_strategy", {}),
-        "competition": intake.get("competition", {}),
-    }
-
-    user_prompt = f"""
-BUSINESS INTAKE (market-relevant sections):
-{compact_json(market_data, max_chars=9000)}
-
----
-
-AGENT 1 NOTES (quality issues to be aware of):
-Quality assessment: {agent_1_report.get("quality_assessment", "No issues flagged.")}
-Thin fields: {json.dumps(agent_1_report.get("thin_fields", []), indent=2)}
-
----
-
-Write the Market Analysis section for this business plan.
-Focus on what is real, specific, and defensible. Avoid generic filler.
-""".strip()
-
-    system_prompt = build_agent_identity_for("agent_2") + "\n\n---\n\n" + _TASK_INSTRUCTIONS
-    market_analysis = call_llm(system_prompt, user_prompt, temperature=0.6)
-
-    return {
-        "market_analysis": market_analysis.strip(),
-    }
+    result = MarketService().execute(
+        MarketInput(validator_output_from_legacy(agent_1_output))
+    ).value
+    return {"market_analysis": result.narrative, "market_intelligence": dict(result.raw_agent_output)}

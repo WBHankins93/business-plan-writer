@@ -6,8 +6,9 @@ Usage:
     python main.py --intake path/to/intake.json [--no-pdf] [--output-dir path]
 
 Pipeline:
-    Agent 1 (Validator) → Agent 2 (Market Builder) → Agent 3 (Financial Checker)
-    → Agent 4 (Plan Writer) → Agent 5 (Critic) → .docx + .pdf output
+    Agent 1 (Validator) → [Agent 2 (Market) || Agent 3 (Financial)]
+    → Agent 4 (Writer) → Agent 5 (Critic) → optional revision + re-review
+    → .docx + .pdf output
 """
 
 from __future__ import annotations
@@ -17,6 +18,11 @@ import json
 import sys
 from datetime import date
 from pathlib import Path
+from uuid import uuid4
+
+from pipeline.artifacts import ArtifactService
+from pipeline.contracts import EventType, PipelineRequest, PipelineStatus, ProgressEvent, RawIntake
+from pipeline.orchestration import OrchestrationService
 
 try:
     from rich.console import Console
@@ -43,6 +49,7 @@ except ModuleNotFoundError:
             return self.title
 
 console = Console()
+progress_file: Path | None = None
 
 
 def _step(label: str) -> None:
@@ -65,17 +72,32 @@ def _info(msg: str) -> None:
     console.print(f"  [dim]{msg}[/dim]")
 
 
-def _write_json(path: Path, payload: dict) -> None:
-    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
-
-
-def _write_text(path: Path, payload: str) -> None:
-    path.write_text(payload, encoding="utf-8")
+def _progress(event: ProgressEvent) -> None:
+    if progress_file is not None:
+        with progress_file.open("a", encoding="utf-8") as file:
+            file.write(json.dumps(event.to_dict(), ensure_ascii=False) + "\n")
+    if event.event_type is EventType.STARTED:
+        _step(event.step.value.replace("_", " ").title())
+    elif event.event_type is EventType.RETRYING:
+        _warn(f"{event.step.value} retry {event.attempt}: {event.message}")
+    elif event.event_type is EventType.COMPLETED:
+        _ok(event.message)
+    elif event.event_type is EventType.FAILED:
+        _fail(f"{event.step.value}: {event.message}")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Generate a professional business plan from a structured intake JSON."
+    )
+    parser.add_argument(
+        "--run-id",
+        help="Explicit run identifier used in progress and audit artifacts.",
+    )
+    parser.add_argument(
+        "--progress-file",
+        metavar="PATH",
+        help="Optional JSON Lines destination for machine-readable progress events.",
     )
     parser.add_argument(
         "--intake",
@@ -108,6 +130,13 @@ def main() -> int:
         help="Run an optional Agent 4 revision pass when Agent 5 does not return GO.",
     )
     args = parser.parse_args()
+
+    global progress_file
+    progress_file = Path(args.progress_file) if args.progress_file else None
+    if progress_file is not None:
+        progress_file.parent.mkdir(parents=True, exist_ok=True)
+        progress_file.write_text("", encoding="utf-8")
+    run_id = args.run_id or str(uuid4())
 
     intake_path = Path(args.intake)
     output_dir = Path(args.output_dir)
@@ -158,122 +187,35 @@ def main() -> int:
     _ok(f"Intake loaded: {business_name}")
     console.print()
 
-    # ── Agent 1 — Validator ─────────────────────────────────────────────────
-    _step("Agent 1 — Intake Validator")
-    import agents.validator as validator
-
-    agent_1_output = validator.run(intake)
-    _write_json(artifact_dir / "raw_agent_1.json", agent_1_output)
-    a1_report = agent_1_output.get("agent_1_report", {})
-    score = a1_report.get("completeness_score", "?")
-    ready = a1_report.get("ready_for_pipeline", True)
-
-    _ok(f"Completeness score: {score}/100")
-    _info(a1_report.get("quality_assessment", ""))
-
-    if not ready:
-        _warn("Intake flagged as not ready.")
-        if not args.allow_unready:
-            _fail("Stopping pipeline. Re-run with --allow-unready to continue anyway.")
-            return 1
-        _warn("Proceeding due to --allow-unready override.")
-
-    missing = a1_report.get("missing_required", [])
-    if missing:
-        _warn(f"{len(missing)} missing required field(s):")
-        for item in missing[:5]:
-            field = item.get("field", item) if isinstance(item, dict) else item
-            _info(f"  · {field}")
-        if len(missing) > 5:
-            _info(f"  · … and {len(missing) - 5} more")
-
-    console.print()
-
-    # ── Agent 2 — Market Builder ────────────────────────────────────────────
-    _step("Agent 2 — Market Builder")
-    import agents.market_builder as market_builder
-
-    agent_2_output = market_builder.run(agent_1_output)
-    _write_text(artifact_dir / "raw_agent_2.md", agent_2_output.get("market_analysis", ""))
-    market_len = len(agent_2_output.get("market_analysis", ""))
-    _ok(f"Market analysis generated ({market_len:,} characters)")
-    console.print()
-
-    # ── Agent 3 — Financial Checker ─────────────────────────────────────────
-    _step("Agent 3 — Financial Checker")
-    import agents.financial_checker as financial_checker
-
-    agent_3_output = financial_checker.run(agent_1_output)
-    _write_json(artifact_dir / "raw_agent_3.json", agent_3_output)
-    fv = agent_3_output.get("financial_validation", {})
-    credibility = fv.get("overall_financial_credibility", "?")
-    _ok(f"Financial credibility rating: {credibility}")
-
-    risks = fv.get("cash_flow_risks", [])
-    if risks:
-        _info(f"Cash flow risks identified: {len(risks)}")
-
-    console.print()
-
-    # ── Agent 4 — Plan Writer ───────────────────────────────────────────────
-    _step("Agent 4 — Plan Writer")
-    import agents.plan_writer as plan_writer
-
-    agent_4_output = plan_writer.run(agent_1_output, agent_2_output, agent_3_output)
-    _write_text(artifact_dir / "raw_agent_4.md", agent_4_output.get("business_plan", ""))
-    plan_len = len(agent_4_output.get("business_plan", ""))
-    agent_key_used = agent_4_output.get("agent_4_key", "agent_4")
-    _ok(f"Business plan written ({plan_len:,} characters, persona: {agent_key_used})")
-    console.print()
-
-    # ── Agent 5 — Critic ────────────────────────────────────────────────────
-    _step("Agent 5 — Critic")
-    import agents.critic as critic
-
-    agent_5_output = critic.run(agent_1_output, agent_4_output)
-    _write_json(artifact_dir / "raw_agent_5.json", agent_5_output)
-    critique = agent_5_output.get("critique", {})
-    approved = agent_5_output.get("approved", False)
-    recommendation = critique.get("recommendation", "unknown")
-
-    scores = critique.get("scores", {})
-    overall = scores.get("overall", "?")
-    _ok(f"Overall score: {overall}/10  |  Recommendation: {recommendation.upper()}")
-
-    for dim in ("clarity", "completeness", "credibility", "professionalism", "persuasiveness"):
-        val = scores.get(dim, "?")
-        _info(f"  {dim.capitalize()}: {val}/10")
-
-    issues = critique.get("critical_issues", [])
-    if issues:
-        _warn(f"{len(issues)} critical issue(s) flagged:")
-        for issue in issues[:3]:
-            if isinstance(issue, dict):
-                sev = issue.get("severity", "?").upper()
-                text = issue.get("issue", str(issue))
-                _info(f"  [{sev}] {text}")
-
-    if not approved:
-        _warn("Plan not approved — review critic output. Continuing to output anyway.")
-
-    approval_status = str(critique.get("approval_status", "")).upper()
-    if approval_status != "GO" and args.revise:
-        _step("Agent 4 — Revision Pass")
-        revised_output = plan_writer.run(
-            agent_1_output,
-            agent_2_output,
-            agent_3_output,
-            revision_notes=critique.get("revision_notes", ""),
-            prior_draft=agent_4_output.get("business_plan", ""),
+    raw_intake = RawIntake(intake)
+    result = OrchestrationService(event_sink=_progress).execute(
+        PipelineRequest(
+            raw_intake=raw_intake,
+            allow_unready=args.allow_unready,
+            revise_on_critic=args.revise,
+            run_id=run_id,
         )
-        revised_plan = revised_output.get("business_plan", "")
-        _write_text(artifact_dir / "business_plan_revised.md", revised_plan)
-        agent_4_output = revised_output
-        _ok("Revision pass complete from critic feedback")
-        console.print()
-    elif approval_status != "GO":
-        _warn("Revision pass skipped. Re-run with --revise to generate a revised draft.")
+    )
+    ArtifactService().write_run(artifact_dir, raw_intake, result)
 
+    if result.status is PipelineStatus.INCOMPLETE_INTAKE:
+        _fail("Intake is not ready. Re-run with --allow-unready to continue anyway.")
+        return 1
+    if result.status is PipelineStatus.FAILED:
+        reason = result.failures[-1].reason if result.failures else "unknown pipeline failure"
+        _fail(f"Pipeline failed: {reason}")
+        return 1
+
+    assert result.validation and result.financial and result.draft and result.critique
+    score = result.validation.completeness_score
+    credibility = result.financial.overall_credibility
+    recommendation = result.critique.recommendation
+    approved = result.critique.approval_status == "GO"
+    overall = result.critique.scores.get("overall", "?")
+    _info(f"Financial credibility: {credibility}")
+    _info(f"Final critic recommendation: {recommendation.upper()}")
+    if result.revisions:
+        _ok("Critic-triggered revision and second review completed")
     console.print()
 
     # ── Output: .docx ───────────────────────────────────────────────────────
@@ -287,7 +229,7 @@ def main() -> int:
     docx_path = output_dir / docx_filename
 
     build_docx(
-        business_plan_markdown=agent_4_output["business_plan"],
+        business_plan_markdown=result.draft.markdown,
         business_name=business_name,
         output_path=docx_path,
         intake_date=intake_date,
