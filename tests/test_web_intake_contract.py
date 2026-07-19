@@ -22,16 +22,28 @@ class FakeRunStore:
         self.run = None
         self.audit_events = []
 
-    def create(self, *, run_id, client_slug, intake, artifact_path) -> None:
+    def create(
+        self,
+        *,
+        run_id,
+        client_slug,
+        intake,
+        artifact_path,
+        provider,
+        model,
+        configuration,
+    ) -> None:
         now = datetime(2026, 7, 19, 12, 0, 0)
         self.run = SimpleNamespace(
             id=run_id,
             client_slug=client_slug,
             status="queued",
-            intake_json=intake,
-            artifact_path=artifact_path,
+            input_snapshot_json=intake,
             progress_json=[],
-            result_json=None,
+            provider=provider,
+            model=model,
+            configuration_json=configuration,
+            output_summary_json=None,
             error_code=None,
             error_message=None,
             started_at=None,
@@ -45,6 +57,9 @@ class FakeRunStore:
 
     def events(self, _run_id):
         return self.audit_events
+
+    def artifacts(self, _run_id):
+        return []
 
 
 class WebIntakeContractTests(unittest.TestCase):
@@ -76,13 +91,13 @@ class WebIntakeContractTests(unittest.TestCase):
             response = generate_plan(GeneratePlanRequest(intake=intake), BackgroundTasks())
 
         self.assertEqual(response["client_slug"], "lena-s-cakes-co")
-        self.assertEqual(store.run.intake_json["business_information"]["business_name"], "Lena's Cakes & Co.")
-        self.assertNotIn("_meta", store.run.intake_json)
+        self.assertEqual(store.run.input_snapshot_json["business_information"]["business_name"], "Lena's Cakes & Co.")
+        self.assertNotIn("_meta", store.run.input_snapshot_json)
         self.assertEqual(
             {(field.section, field.name) for field in SCHEMA},
             {
                 (section, name)
-                for section, values in store.run.intake_json.items()
+                for section, values in store.run.input_snapshot_json.items()
                 for name in values
             },
         )
@@ -114,7 +129,7 @@ class WebIntakeContractTests(unittest.TestCase):
                 {"step": index + 1, "name": name, "status": "complete"}
                 for index, name in enumerate(["Validation", "Market", "Financials", "Draft", "Review"])
             ]
-            store.run.result_json = {
+            store.run.output_summary_json = {
                 "status": "succeeded",
                 "draft_markdown": "# Bywater Grounds",
                 "progress": store.run.progress_json,

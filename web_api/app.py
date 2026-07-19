@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 from intake.schema import canonicalize_intake, intake_request_errors
 from web_api.artifacts import ArtifactStore, DownloadAuthorizer
-from web_api.config import PROJECT_ROOT
+from web_api.config import PROJECT_ROOT, generation_configuration
 from web_api.db import RunStore, initial_progress, migration_state
 from web_api.execution import ExecutionFailed, ExecutionTimedOut, SubprocessExecutor
 
@@ -102,11 +102,15 @@ def generate_plan(
     client_slug = _slugify(business_name)
     run_id = str(uuid.uuid4())
     artifact_directory = _artifact_store().run_directory(run_id)
+    provider, model, configuration = generation_configuration()
     _store().create(
         run_id=run_id,
         client_slug=client_slug,
         intake=intake,
         artifact_path=str(artifact_directory),
+        provider=provider,
+        model=model,
+        configuration=configuration,
     )
 
     background_tasks.add_task(_execute_run, run_id)
@@ -139,7 +143,7 @@ def _execute_run(run_id: str) -> None:
     try:
         executor.execute(
             run_id=run_id,
-            intake=run.intake_json,
+            intake=run.input_snapshot_json,
             artifact_directory=artifact_directory,
             on_progress=lambda event: store.record_progress(run_id, event),
         )
@@ -202,28 +206,27 @@ def get_run(
         "error": (
             {"code": run.error_code, "message": run.error_message} if run.error_code else None
         ),
-        "result": _public_result(run.result_json),
+        "result": _public_result(run, store.artifacts(run_id)),
         "events": store.events(run_id),
     }
 
 
-def _public_result(result: dict | None) -> dict | None:
+def _public_result(run, artifacts: list) -> dict | None:
+    result = run.output_summary_json
     if result is None:
         return None
-    payload = {
-        key: value
-        for key, value in result.items()
-        if key not in {"artifact_files", "draft_file"}
-    }
-    payload["draft_markdown"] = (
-        _artifact_store().read_text(result.get("run_id", ""), result.get("draft_file"))
-        if "draft_file" in result
-        else result.get("draft_markdown", "")
-    )
+    payload = dict(result)
+    by_type = {artifact.artifact_type: artifact for artifact in artifacts}
+    draft = by_type.get("draft")
+    payload["draft_markdown"] = result.get("draft_markdown", "")
+    if draft is not None and draft.storage_provider == "filesystem":
+        path = _artifact_store().resolve_storage_key(draft.storage_key)
+        payload["draft_markdown"] = path.read_text(encoding="utf-8") if path else ""
     authorizer = DownloadAuthorizer()
     payload["exports"] = {
-        kind: authorizer.url(result["run_id"], filename) if filename else None
-        for kind, filename in result.get("artifact_files", {}).items()
+        kind: authorizer.url(run.id, artifact.storage_key.split("/", 1)[-1])
+        for kind in ("docx", "pdf")
+        if (artifact := by_type.get(kind)) is not None
     }
     return payload
 
@@ -250,10 +253,10 @@ def get_artifact(
     run = _store().get(run_id)
     if run is None:
         raise HTTPException(status_code=404, detail="Artifact not found.")
-    downloadable = set((run.result_json or {}).get("artifact_files", {}).values())
-    if filename not in downloadable:
+    artifact = _store().artifact_for_filename(run_id, filename)
+    if artifact is None:
         raise HTTPException(status_code=404, detail="Artifact not found.")
-    path = _artifact_store().resolve_file(run_id, filename)
+    path = _artifact_store().resolve_storage_key(artifact.storage_key)
     if path is None:
         raise HTTPException(status_code=404, detail="Artifact not found.")
     return FileResponse(path)

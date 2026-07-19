@@ -43,3 +43,27 @@ def download_token_ttl_seconds() -> int:
     if value <= 0:
         raise RuntimeError("DOWNLOAD_TOKEN_TTL_SECONDS must be greater than zero")
     return value
+
+
+def generation_configuration() -> tuple[str, str, dict[str, object]]:
+    """Return the non-secret model configuration snapshotted with a new run."""
+    default_models = {
+        "groq": "llama-3.3-70b-versatile",
+        "anthropic": "claude-sonnet-4-6",
+        "openai": "gpt-4o",
+    }
+    provider = os.getenv("LLM_PROVIDER", "groq").lower()
+    model = os.getenv("LLM_MODEL") or default_models.get(
+        provider, "llama-3.3-70b-versatile"
+    )
+    writer_provider = os.getenv("LLM_PROVIDER_WRITER", provider).lower()
+    writer_model = os.getenv("LLM_MODEL_WRITER") or default_models.get(
+        writer_provider, model
+    )
+    configuration: dict[str, object] = {
+        "writer_provider": writer_provider,
+        "writer_model": writer_model,
+        "timeout_seconds": float(os.getenv("LLM_TIMEOUT_SECONDS", "60")),
+        "max_attempts": int(os.getenv("LLM_MAX_RETRIES", "3")),
+    }
+    return provider, model, configuration

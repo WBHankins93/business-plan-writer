@@ -182,7 +182,8 @@ class APILifecycleTests(DatabaseHarness):
         self.assertEqual(body["status_url"], f"/runs/{body['run_id']}")
         stored = RunStore().get(body["run_id"])
         self.assertEqual(stored.status, "queued")
-        self.assertTrue(stored.artifact_path.endswith(body["run_id"]))
+        self.assertIsNotNone(stored.project_id)
+        self.assertEqual(stored.provider, "groq")
 
     def test_polling_reports_actual_agent_level_progress_and_audit_events(self):
         response = self.generate()
@@ -206,7 +207,11 @@ class APILifecycleTests(DatabaseHarness):
         self.assertEqual(body["events"][0]["status"], "queued")
         self.assertEqual(body["events"][-1]["status"], "succeeded")
         self.assertEqual(body["result"]["draft_markdown"], "# Plan")
-        self.assertNotIn("draft_markdown", RunStore().get(run_id).result_json)
+        self.assertNotIn("draft_markdown", RunStore().get(run_id).output_summary_json)
+        self.assertEqual(
+            {artifact.artifact_type for artifact in RunStore().artifacts(run_id)},
+            {"draft", "docx", "pdf"},
+        )
 
     def test_two_runs_for_same_business_have_distinct_artifact_directories(self):
         with patch.object(app_module, "_execute_run", return_value=None):
@@ -221,7 +226,10 @@ class APILifecycleTests(DatabaseHarness):
         second_run = RunStore().get(second["run_id"])
         self.assertEqual(first_run.client_slug, second_run.client_slug)
         self.assertNotEqual(first_run.id, second_run.id)
-        self.assertNotEqual(first_run.artifact_path, second_run.artifact_path)
+        self.assertNotEqual(
+            app_module._artifact_store().run_directory(first_run.id),
+            app_module._artifact_store().run_directory(second_run.id),
+        )
 
     def test_failure_exposes_safe_error_and_persists_operator_details(self):
         response = self.generate(FailedExecutor)
@@ -282,7 +290,7 @@ class MigrationAndHealthTests(DatabaseHarness):
 
         ready = self.client.get("/readyz")
         self.assertEqual(ready.status_code, 200)
-        self.assertEqual(ready.json()["database_revision"], "20260719_0002")
+        self.assertEqual(ready.json()["database_revision"], "20260719_0003")
 
     def test_migration_upgrade_and_downgrade_are_explicit_and_complete(self):
         config = self._alembic_config()
@@ -291,7 +299,16 @@ class MigrationAndHealthTests(DatabaseHarness):
         command.upgrade(config, "head")
         self.assertEqual(
             set(inspect(self.engine).get_table_names()),
-            {"alembic_version", "run_events", "runs"},
+            {
+                "alembic_version",
+                "profiles",
+                "projects",
+                "intake_drafts",
+                "runs",
+                "run_events",
+                "artifacts",
+                "revisions",
+            },
         )
 
         command.downgrade(config, "base")
