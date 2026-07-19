@@ -16,29 +16,23 @@ Each agent now applies expert personas as internal reasoning lenses (not extra a
 
 ## How it works
 
+```text
+raw intake → Agent 1 validator
+                 ├── Agent 2 market ────┐
+                 └── Agent 3 financial ─┤  (parallel)
+                                        ▼
+                              Agent 4 plan writer
+                                        ▼
+                                Agent 5 critic
+                                        │
+                         optional bounded revision + re-review
+                                        ▼
+                       audit artifacts + plan.docx + plan.pdf
 ```
-  intake.json
-       │
-       ▼
-  ┌────────────┐     ┌────────────┐     ┌────────────┐     ┌────────────┐     ┌────────────┐
-  │  Agent 1   │────▶│  Agent 2   │────▶│  Agent 3   │────▶│  Agent 4   │────▶│  Agent 5   │
-  │ Validator  │     │  Market    │     │ Financial  │     │   Writer   │     │   Critic   │
-  │            │     │  Builder   │     │  Checker   │     │            │     │            │
-  └────────────┘     └────────────┘     └────────────┘     └────────────┘     └────────────┘
-  llama-3.3-70b      llama-3.3-70b      llama-3.3-70b      ★ configurable     llama-3.3-70b
-  Groq (default)     Groq (default)     Groq (default)     per-agent env      Groq (default)
-       │                   │                  │                   │                  │
-       ▼                   ▼                  ▼                   ▼                  ▼
-  Completeness        Market Intel       Financial           Full Plan          Quality Score
-  Score + Flags       + Positioning      Credibility         (markdown)         + Approval
-                                         Rating
 
-                                                                  │
-                                                     ┌────────────┴────────────┐
-                                                     ▼                         ▼
-                                                  plan.docx                plan.pdf
-                                               (python-docx)          (docx2pdf / reportlab)
-```
+Every boundary uses typed records from `pipeline/contracts.py`. Progress events,
+call telemetry, failures, original drafts, revisions, and critic history are retained
+as distinct records. See `docs/pipeline-architecture.md` for the execution contract.
 
 > **Agent 4** supports a separate `LLM_PROVIDER_WRITER` + `LLM_MODEL_WRITER` — run a premium model (e.g. Claude Sonnet) just for the writing step while keeping other agents on fast, free-tier Groq.
 >
@@ -56,10 +50,12 @@ python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 
 cp .env.example .env.local   # add your API keys
+alembic upgrade head          # required before starting the API
 venv/bin/python main.py --intake sample_intake/sample_client.json
 ```
 
-Output lands in `output/documents/` as both `.docx` and `.pdf`.
+Output lands in `output/documents/` as both `.docx` and `.pdf`. The directory also
+contains named JSON/Markdown audit records and `run-manifest.json`.
 
 Run tests:
 
@@ -92,6 +88,7 @@ Use this path when showing the tool to clients, employers, or stakeholders:
 
 ```bash
 # Terminal 1: API
+alembic upgrade head
 uvicorn web_api.app:app --reload --port 8000
 
 # Terminal 2: Web app
@@ -153,6 +150,17 @@ OPENAI_API_KEY=...
 LLM_TIMEOUT_SECONDS=60
 LLM_MAX_RETRIES=3
 LLM_RETRY_BACKOFF_SECONDS=1.25
+PIPELINE_TIMEOUT_SECONDS=900
+
+# Run-scoped API artifacts and signed browser-download lifetime
+ARTIFACT_ROOT=./output/runs
+DOWNLOAD_TOKEN_TTL_SECONDS=900
+
+# Optional cost estimation when providers return token usage
+LLM_INPUT_COST_PER_MILLION_USD=...
+LLM_OUTPUT_COST_PER_MILLION_USD=...
+LLM_WRITER_INPUT_COST_PER_MILLION_USD=...
+LLM_WRITER_OUTPUT_COST_PER_MILLION_USD=...
 ```
 
 Supported providers: `groq` · `anthropic` · `openai`
@@ -173,7 +181,7 @@ The intake schema covers **12 sections** and **60+ fields**, classified into thr
 
 ### Why this improves output quality
 
-- **No architecture churn:** pipeline remains the same 5-agent sequence.
+- **Explicit service boundaries:** each agent has a typed input and output contract.
 - **Higher decision quality:** each agent applies role-specific expert heuristics instead of generic prose generation.
 - **Better risk handling:** disagreements and weak assumptions are surfaced explicitly, with conservative defaults in evaluation stages.
 - **No persona bleed:** personas are scoped by agent role and do not create a new orchestration layer.
@@ -193,24 +201,26 @@ The intake schema covers **12 sections** and **60+ fields**, classified into thr
 
 Phase 1 — core pipeline — is complete and end-to-end functional.
 
-**Phase 2** (in development): Web intake + FastAPI orchestration + run tracking.
+The CLI pipeline has typed service boundaries, parallel market/financial analysis,
+observable progress events, bounded retries, call telemetry, and a bounded critic
+revision flow. The API keeps orchestration, run persistence, and artifact delivery as
+separate boundaries while preserving the CLI pipeline contract.
 
 ---
 
 ## Product / Backend Roadmap (No Dates)
 
 ### Priority 1 — Runtime reliability
-- Introduce persistent run tracking (`run_id`, status, errors, outputs).
-- Keep the current CLI pipeline and API aligned while we evolve toward deeper service integration.
-- Improve step-level progress reporting from static “complete” states to real execution updates.
+- Keep the typed CLI orchestration contract aligned with the API executor.
+- Recover or explicitly fail stranded queued/running records after process restarts.
 
 ### Priority 2 — Database-backed execution visibility
-- Add database persistence for each run and expose run lookup endpoint(s).
-- Store run metadata, status transitions, and API response payload snapshots.
+- Maintain run metadata, status transitions, failure details, and polling responses as
+  separate persistence concerns.
 - Keep generated artifacts on local disk for now and index them via run records.
 
 ### Priority 3 — API hardening (auth deferred)
-- Add standardized API error envelopes and health endpoints.
+- Keep standardized API error envelopes and health/readiness behavior covered by tests.
 - Tighten request validation progressively while preserving contributor friendliness.
 - Add guardrails for runtime failures and clearer operator diagnostics.
 
@@ -246,13 +256,19 @@ DATABASE_URL=postgresql+psycopg://<user>:<password>@<host>/<db>?sslmode=require
 ### 3) What to add in Neon
 - A database user with read/write privileges.
 - SSL required (Neon default).
-- No manual table creation required for now: the API creates the `runs` table on startup.
+- Apply the repository migrations explicitly with `alembic upgrade head`. The API never creates
+  or upgrades tables on startup; `/readyz` returns `503` until the database is at migration head.
 
 ### Current backend endpoints
-- `POST /generate-plan` → execute pipeline, persist run, return result + `run_id`
+- `POST /generate-plan` → queue pipeline execution and return `202` + `run_id`
 - `GET /runs/{run_id}` → fetch persisted run status/result
-- `GET /artifacts/{client_slug}/{filename}` → download generated artifacts
+- `GET /runs/{run_id}/artifacts/{filename}` → download a run-scoped artifact
 - `GET /healthz` → health check
+- `GET /readyz` → database connection and migration readiness
+
+Each API run writes to `output/runs/{run_id}/`; the business slug is metadata, never a unique
+artifact key. When API-key protection is enabled, polling responses contain short-lived signed
+artifact links so normal browser downloads work without putting the API key in the URL.
 ---
 
 ## Production Readiness Additions
@@ -264,7 +280,7 @@ The project now includes the first production-readiness foundations:
 - Explicit frontend TypeScript build dependencies and a `typecheck` script.
 - Asynchronous plan generation: `POST /generate-plan` returns `202 Accepted` with a `run_id`, and clients poll `GET /runs/{run_id}`.
 - Persisted run progress via `progress_json` on run records.
-- API-key enforcement when `BUSINESS_PLAN_API_KEY` is set, plus CORS configuration and Alembic migration scaffolding.
+- API-key enforcement when `BUSINESS_PLAN_API_KEY` is set, plus CORS configuration and explicit Alembic migrations.
 
 Before production startup, run:
 
@@ -275,7 +291,13 @@ alembic upgrade head
 For local production-like execution:
 
 ```bash
-docker compose up --build
+docker compose --env-file .env.local run --rm migrate
+docker compose --env-file .env.local up --build
 ```
+
+The migration command is intentionally separate from API startup. The current executor uses
+in-process FastAPI background tasks, one subprocess per run, local disk, and a single database;
+it is suitable for a small private beta, not multi-host or high-volume execution. A process
+restart can strand a queued/running run, and local artifacts are not shared across hosts.
 
 See `docs/production-readiness.md` for operator notes and remaining caveats.

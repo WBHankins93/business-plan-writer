@@ -1,4 +1,17 @@
 services:
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    env_file:
+      - .env.local
+    environment:
+      DATABASE_URL: sqlite:///./output/business_plan_writer.db
+    volumes:
+      - ./output:/app/output
+    command: ["alembic", "upgrade", "head"]
+    profiles: ["tools"]
+
   api:
     build:
       context: .
@@ -12,7 +25,7 @@ services:
     volumes:
       - ./output:/app/output
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz').read()"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/readyz').read()"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -21,6 +34,9 @@ services:
     build:
       context: ./web
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+        NEXT_PUBLIC_API_KEY: ${BUSINESS_PLAN_API_KEY:-}
     environment:
       NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
       NEXT_PUBLIC_API_KEY: ${BUSINESS_PLAN_API_KEY:-}

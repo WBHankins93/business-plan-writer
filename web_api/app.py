@@ -3,27 +3,27 @@ from __future__ import annotations
 import json
 import os
 import re
-import subprocess
-import sys
+import secrets
+import uuid
 from pathlib import Path
 from typing import Any
 
-from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, status
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
-from web_api.db import SessionLocal
-from web_api.models import Run
+from intake.schema import canonicalize_intake, intake_request_errors
+from web_api.artifacts import ArtifactStore, DownloadAuthorizer
+from web_api.config import PROJECT_ROOT
+from web_api.db import RunStore, initial_progress, migration_state
+from web_api.execution import ExecutionFailed, ExecutionTimedOut, SubprocessExecutor
 
 
 class GeneratePlanRequest(BaseModel):
     intake: dict[str, Any] = Field(..., description="Business intake payload")
 
 
-API_KEY = os.getenv("BUSINESS_PLAN_API_KEY")
 ALLOWED_ORIGINS = [
     origin.strip()
     for origin in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000").split(",")
@@ -40,26 +40,36 @@ app.add_middleware(
 )
 
 
-PIPELINE_STEPS = [
-    {"step": 1, "name": "Validation"},
-    {"step": 2, "name": "Market"},
-    {"step": 3, "name": "Financials"},
-    {"step": 4, "name": "Draft"},
-    {"step": 5, "name": "Review"},
-]
-
-
 def require_api_key(x_api_key: str | None = Header(default=None, alias="X-API-Key")) -> None:
     """Require X-API-Key when BUSINESS_PLAN_API_KEY is configured."""
-    if API_KEY and x_api_key != API_KEY:
+    api_key = os.getenv("BUSINESS_PLAN_API_KEY")
+    if api_key and (x_api_key is None or not secrets.compare_digest(x_api_key, api_key)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"code": "unauthorized", "message": "A valid X-API-Key header is required."},
         )
 
 
-def _session() -> Session:
-    return SessionLocal()
+def require_database_ready() -> None:
+    ready, current, expected = migration_state()
+    if not ready:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "database_not_ready",
+                "message": "Database migrations must be applied before using the API.",
+                "current_revision": current,
+                "expected_revision": expected,
+            },
+        )
+
+
+def _store() -> RunStore:
+    return RunStore()
+
+
+def _artifact_store() -> ArtifactStore:
+    return ArtifactStore()
 
 
 def _slugify(value: str) -> str:
@@ -67,164 +77,186 @@ def _slugify(value: str) -> str:
     return cleaned or "client"
 
 
-def _progress(status_value: str) -> list[dict[str, Any]]:
-    return [{**step, "status": status_value} for step in PIPELINE_STEPS]
-
-
 @app.post("/generate-plan", status_code=status.HTTP_202_ACCEPTED)
 def generate_plan(
     req: GeneratePlanRequest,
     background_tasks: BackgroundTasks,
     _: None = Depends(require_api_key),
+    _database: None = Depends(require_database_ready),
 ) -> dict[str, Any]:
-    intake = req.intake
-    business_name = intake.get("business_information", {}).get("business_name", "Unknown Business")
-    client_slug = _slugify(business_name)
-
-    db = _session()
-    try:
-        run = Run(
-            client_slug=client_slug,
-            status="queued",
-            intake_json=intake,
-            progress_json=_progress("pending"),
+    intake = canonicalize_intake(req.intake)
+    field_errors = intake_request_errors(intake)
+    if field_errors:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={
+                "code": "invalid_intake",
+                "message": "Review the highlighted intake fields before generating the plan.",
+                "fields": field_errors,
+            },
         )
-        db.add(run)
-        db.commit()
-        db.refresh(run)
-        run_id = run.id
-    finally:
-        db.close()
+
+    business_name = intake.get("business_information", {}).get(
+        "business_name", "Unknown Business"
+    )
+    client_slug = _slugify(business_name)
+    run_id = str(uuid.uuid4())
+    artifact_directory = _artifact_store().run_directory(run_id)
+    _store().create(
+        run_id=run_id,
+        client_slug=client_slug,
+        intake=intake,
+        artifact_path=str(artifact_directory),
+    )
 
     background_tasks.add_task(_execute_run, run_id)
     return {
         "run_id": run_id,
         "client_slug": client_slug,
         "status": "queued",
-        "progress": _progress("pending"),
+        "progress": initial_progress(),
         "status_url": f"/runs/{run_id}",
     }
 
 
+@app.get("/demo-intake")
+def get_demo_intake(_: None = Depends(require_api_key)) -> dict[str, Any]:
+    fixture_path = PROJECT_ROOT / "sample_intake" / "fictional_bywater_grounds.json"
+    if not fixture_path.is_file():
+        raise HTTPException(status_code=404, detail="Demo intake fixture not found.")
+    return json.loads(fixture_path.read_text(encoding="utf-8"))
+
+
 def _execute_run(run_id: str) -> None:
-    db = _session()
+    store = _store()
+    run = store.get(run_id)
+    if run is None:
+        return
+    artifact_store = _artifact_store()
+    artifact_directory = artifact_store.run_directory(run_id)
+    store.transition(run_id, "running", "Run started.")
+    executor = SubprocessExecutor()
     try:
-        run = db.scalar(select(Run).where(Run.id == run_id))
-        if not run:
-            return
-
-        run.status = "running"
-        run.progress_json = _progress("running")
-        db.add(run)
-        db.commit()
-
-        intake = run.intake_json
-        client_slug = run.client_slug
-        artifact_dir = Path("output") / client_slug
-        artifact_dir.mkdir(parents=True, exist_ok=True)
-        intake_path = artifact_dir / f"web_intake_{run.id}.json"
-        intake_path.write_text(json.dumps(intake, indent=2, ensure_ascii=False), encoding="utf-8")
-
-        cmd = [
-            sys.executable,
-            "main.py",
-            "--intake",
-            str(intake_path),
-            "--output-dir",
-            str(artifact_dir),
-        ]
-        proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
-        if proc.returncode != 0:
-            run.status = "failed"
-            run.progress_json = _progress("failed")
-            run.error_text = f"{proc.stdout[-2000:]}\n{proc.stderr[-2000:]}"
-            db.add(run)
-            db.commit()
-            return
-
-        response = _build_run_response(run.id, client_slug, artifact_dir)
-        run.status = "succeeded"
-        run.progress_json = response["progress"]
-        run.result_json = response
-        run.error_text = None
-        db.add(run)
-        db.commit()
-    except Exception as exc:  # noqa: BLE001 - background task must persist unexpected failures
-        run = db.scalar(select(Run).where(Run.id == run_id))
-        if run:
-            run.status = "failed"
-            run.progress_json = _progress("failed")
-            run.error_text = str(exc)
-            db.add(run)
-            db.commit()
-    finally:
-        db.close()
+        executor.execute(
+            run_id=run_id,
+            intake=run.intake_json,
+            artifact_directory=artifact_directory,
+            on_progress=lambda event: store.record_progress(run_id, event),
+        )
+        result = artifact_store.build_result(run_id, run.client_slug)
+        store.succeed(run_id, result)
+    except ExecutionTimedOut as exc:
+        store.fail(
+            run_id,
+            code="pipeline_timeout",
+            message="Plan generation took too long and was stopped. Please try again.",
+            operator_details=_execution_details(exc.result, str(exc)),
+        )
+    except ExecutionFailed as exc:
+        store.fail(
+            run_id,
+            code="pipeline_failed",
+            message="Plan generation failed. Please review the intake and try again.",
+            operator_details=_execution_details(exc.result, str(exc)),
+        )
+    except Exception as exc:  # noqa: BLE001 - background failures must be persisted
+        store.fail(
+            run_id,
+            code="internal_error",
+            message="Plan generation failed unexpectedly. Please try again.",
+            operator_details=f"{type(exc).__name__}: {exc}",
+        )
 
 
-def _build_run_response(run_id: str, client_slug: str, artifact_dir: Path) -> dict[str, Any]:
-    revised_path = artifact_dir / "business_plan_revised.md"
-    draft_path = revised_path if revised_path.exists() else artifact_dir / "raw_agent_4.md"
-    draft_markdown = draft_path.read_text(encoding="utf-8") if draft_path.exists() else ""
-    agent_1 = _read_json_if_present(artifact_dir / "raw_agent_1.json")
-    agent_5 = _read_json_if_present(artifact_dir / "raw_agent_5.json")
-    critique = agent_5.get("critique", {})
-    a1_report = agent_1.get("agent_1_report", {})
-    output_docx = next(artifact_dir.glob("*_business_plan.docx"), None)
-    output_pdf = next(artifact_dir.glob("*_business_plan.pdf"), None)
-
-    return {
-        "run_id": run_id,
-        "client_slug": client_slug,
-        "status": "succeeded",
-        "progress": _progress("complete"),
-        "draft_markdown": draft_markdown,
-        "artifact_dir": str(artifact_dir),
-        "validation_warnings": {
-            "missing_required": a1_report.get("missing_required", []),
-            "thin_fields": a1_report.get("thin_fields", []),
-            "completeness_score": a1_report.get("completeness_score"),
+def _execution_details(result, message: str) -> str:
+    return json.dumps(
+        {
+            "message": message,
+            "return_code": result.return_code,
+            "stdout_tail": result.stdout_tail,
+            "stderr_tail": result.stderr_tail,
         },
-        "critic": critique,
-        "exports": {
-            "docx": f"/artifacts/{client_slug}/{output_docx.name}" if output_docx else None,
-            "pdf": f"/artifacts/{client_slug}/{output_pdf.name}" if output_pdf else None,
-        },
-    }
-
-
-@app.get("/artifacts/{client_slug}/{filename}")
-def get_artifact(
-    client_slug: str,
-    filename: str,
-    _: None = Depends(require_api_key),
-) -> FileResponse:
-    path = Path("output") / client_slug / filename
-    output_root = Path("output").resolve()
-    resolved_path = path.resolve()
-    if output_root not in resolved_path.parents or not resolved_path.is_file():
-        raise HTTPException(status_code=404, detail="Artifact not found.")
-    return FileResponse(resolved_path)
+        ensure_ascii=False,
+    )
 
 
 @app.get("/runs/{run_id}")
-def get_run(run_id: str, _: None = Depends(require_api_key)) -> dict[str, Any]:
-    db = _session()
-    try:
-        run = db.scalar(select(Run).where(Run.id == run_id))
-        if not run:
-            raise HTTPException(status_code=404, detail="Run not found.")
-        return {
-            "run_id": run.id,
-            "client_slug": run.client_slug,
-            "status": run.status,
-            "progress": run.progress_json or [],
-            "created_at": run.created_at.isoformat(),
-            "updated_at": run.updated_at.isoformat(),
-            "error": run.error_text,
-            "result": run.result_json,
-        }
-    finally:
-        db.close()
+def get_run(
+    run_id: str,
+    _: None = Depends(require_api_key),
+    _database: None = Depends(require_database_ready),
+) -> dict[str, Any]:
+    store = _store()
+    run = store.get(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run not found.")
+    return {
+        "run_id": run.id,
+        "client_slug": run.client_slug,
+        "status": run.status,
+        "progress": run.progress_json or [],
+        "created_at": run.created_at.isoformat(),
+        "updated_at": run.updated_at.isoformat(),
+        "started_at": run.started_at.isoformat() if run.started_at else None,
+        "finished_at": run.finished_at.isoformat() if run.finished_at else None,
+        "error": (
+            {"code": run.error_code, "message": run.error_message} if run.error_code else None
+        ),
+        "result": _public_result(run.result_json),
+        "events": store.events(run_id),
+    }
+
+
+def _public_result(result: dict | None) -> dict | None:
+    if result is None:
+        return None
+    payload = {
+        key: value
+        for key, value in result.items()
+        if key not in {"artifact_files", "draft_file"}
+    }
+    payload["draft_markdown"] = (
+        _artifact_store().read_text(result.get("run_id", ""), result.get("draft_file"))
+        if "draft_file" in result
+        else result.get("draft_markdown", "")
+    )
+    authorizer = DownloadAuthorizer()
+    payload["exports"] = {
+        kind: authorizer.url(result["run_id"], filename) if filename else None
+        for kind, filename in result.get("artifact_files", {}).items()
+    }
+    return payload
+
+
+@app.get("/runs/{run_id}/artifacts/{filename}")
+def get_artifact(
+    run_id: str,
+    filename: str,
+    expires: int | None = Query(default=None),
+    token: str | None = Query(default=None),
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    _database: None = Depends(require_database_ready),
+) -> FileResponse:
+    api_key = os.getenv("BUSINESS_PLAN_API_KEY")
+    signed = DownloadAuthorizer(api_key=api_key).authorized(run_id, filename, expires, token)
+    header_authorized = bool(
+        api_key and x_api_key and secrets.compare_digest(x_api_key, api_key)
+    )
+    if api_key and not header_authorized and not signed:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "unauthorized", "message": "Artifact authorization is required."},
+        )
+    run = _store().get(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Artifact not found.")
+    downloadable = set((run.result_json or {}).get("artifact_files", {}).values())
+    if filename not in downloadable:
+        raise HTTPException(status_code=404, detail="Artifact not found.")
+    path = _artifact_store().resolve_file(run_id, filename)
+    if path is None:
+        raise HTTPException(status_code=404, detail="Artifact not found.")
+    return FileResponse(path)
 
 
 @app.get("/healthz")
@@ -233,19 +265,11 @@ def healthz() -> dict[str, str]:
 
 
 @app.get("/readyz")
-def readyz() -> dict[str, str]:
-    db = _session()
-    try:
-        db.execute(select(1))
-        return {"status": "ready"}
-    finally:
-        db.close()
-
-
-def _read_json_if_present(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {}
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return {}
+def readyz() -> JSONResponse:
+    ready, current, expected = migration_state()
+    payload = {
+        "status": "ready" if ready else "not_ready",
+        "database_revision": current,
+        "expected_revision": expected,
+    }
+    return JSONResponse(payload, status_code=200 if ready else 503)
