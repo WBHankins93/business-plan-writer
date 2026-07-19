@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime
 from typing import Any, Callable
 
@@ -43,13 +44,24 @@ class RunStore:
     def __init__(self, session_factory: Callable[[], Session] | None = None) -> None:
         self.session_factory = session_factory or SessionLocal
 
-    def create(self, *, run_id: str, client_slug: str, intake: dict, artifact_path: str) -> None:
+    def create(
+        self,
+        *,
+        run_id: str,
+        client_slug: str,
+        intake: dict,
+        artifact_path: str,
+        owner_id: str | None = None,
+        project_id: str | None = None,
+    ) -> None:
         from web_api.models import Run, RunEvent
 
         progress = initial_progress()
         with self.session_factory() as db:
             run = Run(
                 id=run_id,
+                owner_id=owner_id,
+                project_id=project_id,
                 client_slug=client_slug,
                 status="queued",
                 intake_json=intake,
@@ -65,6 +77,34 @@ class RunStore:
 
         with self.session_factory() as db:
             run = db.scalar(select(Run).where(Run.id == run_id))
+            if run is None:
+                return None
+            db.expunge(run)
+            return run
+
+    def get_owned(self, run_id: str, owner_id: str):
+        from web_api.models import Run
+
+        with self.session_factory() as db:
+            run = db.scalar(
+                select(Run).where(Run.id == run_id, Run.owner_id == owner_id)
+            )
+            if run is None:
+                return None
+            db.expunge(run)
+            return run
+
+    def get_demo(self, run_id: str):
+        from web_api.models import Run
+
+        with self.session_factory() as db:
+            run = db.scalar(
+                select(Run).where(
+                    Run.id == run_id,
+                    Run.owner_id.is_(None),
+                    Run.project_id.is_(None),
+                )
+            )
             if run is None:
                 return None
             db.expunge(run)
@@ -190,6 +230,89 @@ class RunStore:
                 }
                 for event in events
             ]
+
+
+class ProjectStore:
+    """Persistence boundary for user-owned intake drafts."""
+
+    def __init__(self, session_factory: Callable[[], Session] | None = None) -> None:
+        self.session_factory = session_factory or SessionLocal
+
+    def create(self, owner_id: str):
+        from web_api.models import IntakeProject
+
+        with self.session_factory() as db:
+            project = IntakeProject(
+                id=str(uuid.uuid4()),
+                owner_id=owner_id,
+                title="Untitled business",
+                intake_json={},
+                current_step=0,
+            )
+            db.add(project)
+            db.commit()
+            db.refresh(project)
+            db.expunge(project)
+            return project
+
+    def list_owned(self, owner_id: str) -> list:
+        from web_api.models import IntakeProject
+
+        with self.session_factory() as db:
+            projects = db.scalars(
+                select(IntakeProject)
+                .where(IntakeProject.owner_id == owner_id)
+                .order_by(IntakeProject.updated_at.desc())
+            ).all()
+            for project in projects:
+                db.expunge(project)
+            return list(projects)
+
+    def get_owned(self, project_id: str, owner_id: str):
+        from web_api.models import IntakeProject
+
+        with self.session_factory() as db:
+            project = db.scalar(
+                select(IntakeProject).where(
+                    IntakeProject.id == project_id,
+                    IntakeProject.owner_id == owner_id,
+                )
+            )
+            if project is None:
+                return None
+            db.expunge(project)
+            return project
+
+    def update_draft(
+        self,
+        *,
+        project_id: str,
+        owner_id: str,
+        intake: dict,
+        current_step: int,
+    ):
+        from web_api.models import IntakeProject
+
+        with self.session_factory() as db:
+            project = db.scalar(
+                select(IntakeProject).where(
+                    IntakeProject.id == project_id,
+                    IntakeProject.owner_id == owner_id,
+                )
+            )
+            if project is None:
+                return None
+            business_name = str(
+                intake.get("business_information", {}).get("business_name", "")
+            ).strip()
+            project.title = business_name[:160] or "Untitled business"
+            project.intake_json = intake
+            project.current_step = max(0, min(current_step, 4))
+            project.updated_at = datetime.now(UTC).replace(tzinfo=None)
+            db.commit()
+            db.refresh(project)
+            db.expunge(project)
+            return project
 
 
 def initial_progress() -> list[dict[str, Any]]:

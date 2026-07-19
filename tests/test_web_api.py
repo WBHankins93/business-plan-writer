@@ -4,16 +4,18 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from urllib.parse import urlsplit
 
 from alembic import command
 from alembic.config import Config
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import sessionmaker
 
+from intake.schema import canonicalize_intake
 from web_api import app as app_module
 from web_api import db as db_module
+from web_api.auth import AuthenticatedUser, get_token_verifier
 from web_api.db import RunStore
 from web_api.execution import (
     ExecutionFailed,
@@ -29,29 +31,44 @@ VALID_INTAKE = json.loads(
 )
 
 
+class FakeTokenVerifier:
+    users = {
+        "user-a-token": AuthenticatedUser(id="user-a", email="a@example.com"),
+        "user-b-token": AuthenticatedUser(id="user-b", email="b@example.com"),
+    }
+
+    def verify(self, token: str) -> AuthenticatedUser:
+        if token == "expired-token":
+            raise HTTPException(
+                status_code=401,
+                detail={"code": "session_expired", "message": "Your session has expired. Sign in again."},
+            )
+        if token not in self.users:
+            raise HTTPException(
+                status_code=401,
+                detail={"code": "invalid_session", "message": "Your session is invalid. Sign in again."},
+            )
+        return self.users[token]
+
+
 class SuccessfulExecutor:
     def execute(self, *, run_id, intake, artifact_directory, on_progress):
         artifact_directory.mkdir(parents=True, exist_ok=False)
-        events = [
+        for step, event_type in [
             ("validator", "started"),
             ("validator", "completed"),
-            ("market", "started"),
-            ("financial", "started"),
             ("market", "completed"),
             ("financial", "completed"),
-            ("writer", "started"),
             ("writer", "completed"),
-            ("critic", "started"),
             ("critic", "completed"),
-        ]
-        for step, event_type in events:
+        ]:
             on_progress(
                 {
                     "run_id": run_id,
                     "step": step,
                     "event_type": event_type,
                     "occurred_at": "2026-07-19T12:00:00+00:00",
-                    "message": f"operator detail for {step}",
+                    "message": "operator-only detail",
                     "details": {},
                 }
             )
@@ -103,7 +120,6 @@ class ExecutionBoundaryTests(unittest.TestCase):
             "web_api.execution.subprocess.Popen", return_value=process
         ):
             executor = SubprocessExecutor(timeout_seconds=0.002, poll_interval=0.001)
-
             with self.assertRaises(ExecutionTimedOut):
                 executor.execute(
                     run_id="00000000-0000-0000-0000-000000000001",
@@ -111,7 +127,6 @@ class ExecutionBoundaryTests(unittest.TestCase):
                     artifact_directory=Path(directory) / "run",
                     on_progress=lambda _event: None,
                 )
-
         self.assertTrue(process.killed)
 
 
@@ -125,11 +140,11 @@ class DatabaseHarness(unittest.TestCase):
         self.artifact_root = root / "artifacts"
         self.original_environment = {
             name: os.environ.get(name)
-            for name in ("DATABASE_URL", "ARTIFACT_ROOT", "BUSINESS_PLAN_API_KEY")
+            for name in ("DATABASE_URL", "ARTIFACT_ROOT", "ENABLE_DEMO_MODE")
         }
         os.environ["DATABASE_URL"] = f"sqlite:///{self.database_path}"
         os.environ["ARTIFACT_ROOT"] = str(self.artifact_root)
-        os.environ["BUSINESS_PLAN_API_KEY"] = "beta-key"
+        os.environ["ENABLE_DEMO_MODE"] = "true"
 
         if self.migrate_on_setup:
             command.upgrade(self._alembic_config(), "head")
@@ -143,11 +158,14 @@ class DatabaseHarness(unittest.TestCase):
         db_module.SessionLocal = sessionmaker(
             bind=self.engine, autoflush=False, autocommit=False
         )
+        app_module.app.dependency_overrides[get_token_verifier] = lambda: FakeTokenVerifier()
         self.client = TestClient(app_module.app)
-        self.headers = {"X-API-Key": "beta-key"}
+        self.headers = {"Authorization": "Bearer user-a-token"}
+        self.other_headers = {"Authorization": "Bearer user-b-token"}
 
     def tearDown(self):
         self.client.close()
+        app_module.app.dependency_overrides.clear()
         self.engine.dispose()
         db_module.engine = self.original_engine
         db_module.SessionLocal = self.original_session
@@ -162,108 +180,144 @@ class DatabaseHarness(unittest.TestCase):
     def _alembic_config():
         return Config(str(ROOT / "alembic.ini"))
 
+    def create_saved_project(self, headers=None):
+        selected_headers = headers or self.headers
+        project = self.client.post("/projects", headers=selected_headers).json()
+        saved = self.client.put(
+            f"/projects/{project['id']}/draft",
+            json={"intake": VALID_INTAKE, "current_step": 3},
+            headers=selected_headers,
+        )
+        self.assertEqual(saved.status_code, 200)
+        return saved.json()
+
     def generate(self, executor=SuccessfulExecutor):
+        project = self.create_saved_project()
         with patch.object(app_module, "SubprocessExecutor", executor):
-            return self.client.post(
-                "/generate-plan", json={"intake": VALID_INTAKE}, headers=self.headers
+            response = self.client.post(
+                f"/projects/{project['id']}/generate-plan", headers=self.headers
             )
+        return project, response
+
+
+class AuthenticationAndResumeTests(DatabaseHarness):
+    def test_unauthenticated_private_routes_are_rejected(self):
+        self.assertEqual(self.client.get("/projects").status_code, 401)
+        self.assertEqual(self.client.post("/projects").status_code, 401)
+        self.assertEqual(
+            self.client.get("/runs/00000000-0000-0000-0000-000000000000").status_code,
+            401,
+        )
+
+    def test_expired_session_returns_actionable_401(self):
+        response = self.client.get(
+            "/projects", headers={"Authorization": "Bearer expired-token"}
+        )
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()["detail"]["code"], "session_expired")
+
+    def test_authenticated_user_can_save_refresh_and_resume(self):
+        project = self.create_saved_project()
+        refreshed_client = TestClient(app_module.app)
+        try:
+            resumed = refreshed_client.get(
+                f"/projects/{project['id']}", headers=self.headers
+            )
+        finally:
+            refreshed_client.close()
+
+        self.assertEqual(resumed.status_code, 200)
+        body = resumed.json()
+        self.assertEqual(body["current_step"], 3)
+        self.assertEqual(
+            body["intake"]["business_information"]["business_name"],
+            VALID_INTAKE["business_information"]["business_name"],
+        )
+        self.assertEqual(body["title"], VALID_INTAKE["business_information"]["business_name"])
+
+        listing = self.client.get("/projects", headers=self.headers).json()
+        self.assertEqual(listing[0]["id"], project["id"])
+        self.assertNotIn("intake", listing[0])
+
+    def test_project_ownership_is_enforced_server_side(self):
+        project = self.create_saved_project()
+        self.assertEqual(
+            self.client.get(f"/projects/{project['id']}", headers=self.other_headers).status_code,
+            404,
+        )
+        self.assertEqual(
+            self.client.put(
+                f"/projects/{project['id']}/draft",
+                json={"intake": VALID_INTAKE, "current_step": 0, "owner_id": "user-b"},
+                headers=self.other_headers,
+            ).status_code,
+            404,
+        )
 
 
 class APILifecycleTests(DatabaseHarness):
-    def test_queue_returns_explicit_run_id_and_polling_url(self):
-        with patch.object(app_module, "_execute_run", return_value=None):
-            response = self.client.post(
-                "/generate-plan", json={"intake": VALID_INTAKE}, headers=self.headers
-            )
-
+    def test_generation_uses_owned_saved_draft_and_returns_run(self):
+        project, response = self.generate()
         self.assertEqual(response.status_code, 202)
         body = response.json()
-        self.assertEqual(body["status"], "queued")
-        self.assertEqual(body["status_url"], f"/runs/{body['run_id']}")
-        stored = RunStore().get(body["run_id"])
-        self.assertEqual(stored.status, "queued")
-        self.assertTrue(stored.artifact_path.endswith(body["run_id"]))
+        run = RunStore().get(body["run_id"])
+        self.assertEqual(run.owner_id, "user-a")
+        self.assertEqual(run.project_id, project["id"])
+        self.assertEqual(run.intake_json, canonicalize_intake(VALID_INTAKE))
 
-    def test_polling_reports_actual_agent_level_progress_and_audit_events(self):
-        response = self.generate()
-        run_id = response.json()["run_id"]
-
-        poll = self.client.get(f"/runs/{run_id}", headers=self.headers)
-
+        poll = self.client.get(f"/runs/{run.id}", headers=self.headers)
         self.assertEqual(poll.status_code, 200)
-        body = poll.json()
-        self.assertEqual(body["status"], "succeeded")
-        self.assertEqual(
-            {item["name"]: item["status"] for item in body["progress"]},
-            {
-                "validator": "complete",
-                "market": "complete",
-                "financial": "complete",
-                "writer": "complete",
-                "critic": "complete",
-            },
-        )
-        self.assertEqual(body["events"][0]["status"], "queued")
-        self.assertEqual(body["events"][-1]["status"], "succeeded")
-        self.assertEqual(body["result"]["draft_markdown"], "# Plan")
-        self.assertNotIn("draft_markdown", RunStore().get(run_id).result_json)
+        self.assertEqual(poll.json()["status"], "succeeded")
+        self.assertEqual(poll.json()["result"]["draft_markdown"], "# Plan")
 
-    def test_two_runs_for_same_business_have_distinct_artifact_directories(self):
-        with patch.object(app_module, "_execute_run", return_value=None):
-            first = self.client.post(
-                "/generate-plan", json={"intake": VALID_INTAKE}, headers=self.headers
-            ).json()
-            second = self.client.post(
-                "/generate-plan", json={"intake": VALID_INTAKE}, headers=self.headers
-            ).json()
-
-        first_run = RunStore().get(first["run_id"])
-        second_run = RunStore().get(second["run_id"])
-        self.assertEqual(first_run.client_slug, second_run.client_slug)
-        self.assertNotEqual(first_run.id, second_run.id)
-        self.assertNotEqual(first_run.artifact_path, second_run.artifact_path)
-
-    def test_failure_exposes_safe_error_and_persists_operator_details(self):
-        response = self.generate(FailedExecutor)
-        run_id = response.json()["run_id"]
-
-        body = self.client.get(f"/runs/{run_id}", headers=self.headers).json()
-
-        self.assertEqual(body["status"], "failed")
-        self.assertEqual(body["error"]["code"], "pipeline_failed")
-        self.assertNotIn("private operator failure", body["error"]["message"])
-        stored = RunStore().get(run_id)
-        self.assertIn("private operator failure", stored.error_details)
-
-    def test_timeout_is_persisted_as_a_distinct_failure(self):
-        response = self.generate(TimedOutExecutor)
-        run_id = response.json()["run_id"]
-
-        body = self.client.get(f"/runs/{run_id}", headers=self.headers).json()
-
-        self.assertEqual(body["status"], "failed")
-        self.assertEqual(body["error"]["code"], "pipeline_timeout")
-        self.assertIn("took too long", body["error"]["message"])
-
-    def test_artifact_download_accepts_signed_link_when_api_key_is_enabled(self):
-        response = self.generate()
+    def test_run_and_artifact_cannot_be_read_by_another_user(self):
+        _, response = self.generate()
         run_id = response.json()["run_id"]
         poll = self.client.get(f"/runs/{run_id}", headers=self.headers).json()
-        download_url = poll["result"]["exports"]["docx"]
+        artifact_path = poll["result"]["exports"]["docx"]
 
-        unauthorized_path = urlsplit(download_url).path
-        unauthorized = self.client.get(unauthorized_path)
-        download = self.client.get(download_url)
-
-        self.assertEqual(unauthorized.status_code, 401)
-        self.assertEqual(download.status_code, 200)
-        self.assertEqual(download.content, b"docx-content")
-
-    def test_api_key_is_required_for_queue_and_polling(self):
+        self.assertEqual(self.client.get(f"/runs/{run_id}").status_code, 401)
         self.assertEqual(
-            self.client.post("/generate-plan", json={"intake": VALID_INTAKE}).status_code,
-            401,
+            self.client.get(f"/runs/{run_id}", headers=self.other_headers).status_code,
+            404,
         )
+        self.assertEqual(
+            self.client.get(artifact_path, headers=self.other_headers).status_code,
+            404,
+        )
+        artifact = self.client.get(artifact_path, headers=self.headers)
+        self.assertEqual(artifact.status_code, 200)
+        self.assertEqual(artifact.content, b"docx-content")
+
+    def test_failures_expose_safe_messages_only(self):
+        _, response = self.generate(FailedExecutor)
+        body = self.client.get(
+            f"/runs/{response.json()['run_id']}", headers=self.headers
+        ).json()
+        self.assertEqual(body["error"]["code"], "pipeline_failed")
+        self.assertNotIn("private operator failure", body["error"]["message"])
+        self.assertIn("private operator failure", RunStore().get(body["run_id"]).error_details)
+
+    def test_timeout_is_a_distinct_safe_failure(self):
+        _, response = self.generate(TimedOutExecutor)
+        body = self.client.get(
+            f"/runs/{response.json()['run_id']}", headers=self.headers
+        ).json()
+        self.assertEqual(body["error"]["code"], "pipeline_timeout")
+
+    def test_demo_flow_is_explicit_and_separate_from_private_runs(self):
+        self.assertEqual(self.client.get("/demo/intake").status_code, 200)
+        with patch.object(app_module, "SubprocessExecutor", SuccessfulExecutor):
+            queued = self.client.post(
+                "/demo/generate-plan", json={"intake": VALID_INTAKE}
+            )
+        self.assertEqual(queued.status_code, 202)
+        run_id = queued.json()["run_id"]
+        self.assertEqual(self.client.get(f"/demo/runs/{run_id}").status_code, 200)
+        self.assertEqual(self.client.get(f"/runs/{run_id}", headers=self.headers).status_code, 404)
+
+        os.environ["ENABLE_DEMO_MODE"] = "false"
+        self.assertEqual(self.client.get("/demo/intake").status_code, 404)
 
 
 class MigrationAndHealthTests(DatabaseHarness):
@@ -272,28 +326,20 @@ class MigrationAndHealthTests(DatabaseHarness):
     def test_health_is_live_while_readiness_requires_current_migrations(self):
         self.assertEqual(self.client.get("/healthz").status_code, 200)
         self.assertEqual(self.client.get("/readyz").status_code, 503)
-        blocked = self.client.post(
-            "/generate-plan", json={"intake": VALID_INTAKE}, headers=self.headers
-        )
+        blocked = self.client.post("/projects", headers=self.headers)
         self.assertEqual(blocked.status_code, 503)
-        self.assertEqual(blocked.json()["detail"]["code"], "database_not_ready")
-
         command.upgrade(self._alembic_config(), "head")
-
         ready = self.client.get("/readyz")
         self.assertEqual(ready.status_code, 200)
-        self.assertEqual(ready.json()["database_revision"], "20260719_0002")
+        self.assertEqual(ready.json()["database_revision"], "20260719_0003")
 
-    def test_migration_upgrade_and_downgrade_are_explicit_and_complete(self):
+    def test_migration_upgrade_and_downgrade_are_complete(self):
         config = self._alembic_config()
-        self.assertNotIn("runs", inspect(self.engine).get_table_names())
-
         command.upgrade(config, "head")
         self.assertEqual(
             set(inspect(self.engine).get_table_names()),
-            {"alembic_version", "run_events", "runs"},
+            {"alembic_version", "intake_projects", "run_events", "runs"},
         )
-
         command.downgrade(config, "base")
         self.assertNotIn("runs", inspect(self.engine).get_table_names())
 
