@@ -1,12 +1,12 @@
 import { AnalyticsLink, type AnalyticsEvent } from "./components/AnalyticsLink";
 
-const accountStartUrl = process.env.NEXT_PUBLIC_ACCOUNT_START_URL || "/intake";
+const accountStartUrl = process.env.NEXT_PUBLIC_ACCOUNT_START_URL || "/demo";
 
 const accountEvents = (location: string): AnalyticsEvent[] => [
   {
     name: "cta_click" as const,
     properties: {
-      cta_name: "start_private_beta_intake",
+      cta_name: "start_demo_intake",
       cta_location: location,
       destination: accountStartUrl,
     },
