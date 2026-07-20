@@ -123,12 +123,12 @@ Goal: a customer can buy, complete intake, generate, revise, and download withou
 | P-002 | Add examples and helper text for hard questions | Planned | Must | Users understand what good answers look like. |
 | P-003 | Add "I do not know" answer paths | Planned | Should | Unknown answers can be inferred, skipped, or flagged without blocking unnecessarily. |
 | P-004 | Add account creation and login | Planned | Must | Users can own projects and return later. |
-| P-005 | Add Stripe checkout | Planned | Must | User can purchase a package before or during generation. |
-| P-006 | Add package definitions | Planned | Must | Starter, Funding Ready, and Reviewed Plan packages are defined in-product. |
+| P-005 | Add Stripe checkout | Implemented | Must | User can purchase the single public-beta offer before generation. |
+| P-006 | Add package definition | Implemented | Must | The Funding-Focused one-time offer is the only in-product package. |
 | P-007 | Add post-payment project dashboard | Planned | Must | User sees purchased plan, status, exports, and revisions. |
-| P-008 | Add revision counter | Planned | Should | Included revision passes are tracked and visible. |
+| P-008 | Add revision counter | Implemented | Should | Two included revision passes are tracked and enforced. |
 | P-009 | Add terms, disclaimers, and privacy language | In Progress | Must | Public beta page states AI-assisted nature, no legal/financial advice, privacy limits, and user review responsibility; formal terms and retention policy remain. |
-| P-010 | Add support contact path | In Progress | Must | Public beta directs invited users to reply to their invitation; a dedicated support workflow remains. |
+| P-010 | Add support contact path | Implemented | Must | Customer support/refund requests are idempotent and linked to payments or runs. |
 | P-011 | Add email notifications | Planned | Should | User receives draft-ready and export-ready notifications. |
 | P-012 | Polish responsive UI states | Planned | Must | Empty, loading, failed, mobile, and success states look intentional. |
 
@@ -190,7 +190,7 @@ These are intentionally not required for the 8/10 launch threshold.
 | S-014 | White-label consultant/accountant version | Watch | Could | Potential B2B channel. |
 | S-015 | Partner offers for LLC, bookkeeping, payroll, lending | Watch | Could | Monetization expansion after trust exists. |
 
-## Validation Launch Offer
+## Public Beta Launch Offer
 
 The earlier $149–$1,497 multi-tier software/package hypotheses are superseded for the first-customer validation window. The current launch tests one professional service:
 
@@ -199,6 +199,8 @@ The earlier $149–$1,497 multi-tier software/package hypotheses are superseded 
 | Funding-Focused Business Plan Service | $750 | Structured intake, funding-focused plan, three-year projection summary based on customer inputs, human review, DOCX/PDF, seven-day delivery after complete intake, and two revision rounds. |
 
 Independent market research, a custom spreadsheet, legal/accounting advice, and financing approval are not included. Cancellation and refund terms are documented in `docs/launch-playbook.md` and `FIVERR-GIG.md`.
+
+No subscription, alternate tier, add-on ladder, coupon, or upgrade path is supported in this release.
 
 ## Key Product Metrics
 
@@ -232,7 +234,7 @@ Independent market research, a custom spreadsheet, legal/accounting advice, and 
 | 2026-07-03 | Treat this document as the roadmap source of truth. | Product maturity needs a single updateable artifact. |
 | 2026-07-03 | Use 8/10 as the pre-launch readiness target. | 10/10 polish should not block market validation. |
 | 2026-07-03 | Position against business plan writing services, not cheap AI generators. | The product has better margin and perceived value as a funding-ready package. |
-| 2026-07-03 | Favor a $497 Funding Ready offer as the initial commercial hypothesis. | Raw model cost is low enough to include revisions while preserving margin. |
+| 2026-07-19 | Supersede the earlier lower-price hypothesis with one $750 Funding-Focused validation offer. | Keep checkout, landing-page copy, delivery, and support scope operationally consistent. |
 | 2026-07-19 | Focus the private-beta landing page on operating local-service-business owners seeking expansion financing. | A narrow funding conversation makes the problem, fit, sample, and offer easier to evaluate without implying unsupported research or approval. |
 | 2026-07-19 | Use Business Plan Writer publicly, with Ben Hankins as the named practitioner; keep Sproutflow out of launch messaging except where it is the actual legal payee. | The buyer needs one descriptive service identity and one accountable human, not three competing names. |
 | 2026-07-19 | Target owners of operating US local service businesses preparing for SBA-backed or conventional expansion financing. | This buyer has a specific job-to-be-done and is more likely than an idea-stage founder to have usable operating and financial inputs. |

@@ -4,23 +4,47 @@ import json
 import os
 import re
 import uuid
-from typing import Any
+from typing import Any, Literal
 
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, status
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from intake.schema import canonicalize_intake, intake_request_errors
 from web_api.artifacts import ArtifactStore
+from web_api.billing import (
+    BillingConfigurationError,
+    BillingStore,
+    EntitlementUnavailable,
+    InvalidWebhook,
+    StripeGateway,
+)
 from web_api.auth import AuthenticatedUser, require_user
-from web_api.config import PROJECT_ROOT
-from web_api.db import ProjectStore, RunStore, initial_progress, migration_state
+from web_api.config import PROJECT_ROOT, generation_configuration
+from web_api.db import (
+    IntakeDraftStore,
+    ProfileStore,
+    ProjectStore,
+    RunStore,
+    initial_progress,
+    migration_state,
+)
 from web_api.execution import ExecutionFailed, ExecutionTimedOut, SubprocessExecutor
+from web_api.packages import FUNDING_READY
 
 
 class GeneratePlanRequest(BaseModel):
     intake: dict[str, Any] = Field(..., description="Business intake payload")
+    project_id: str | None = Field(default=None, max_length=36)
+
+
+class SupportRequestBody(BaseModel):
+    client_request_id: str = Field(..., min_length=1, max_length=100)
+    kind: Literal["payment", "refund", "generation", "human_qa", "other"]
+    message: str = Field(..., min_length=10, max_length=4000)
+    payment_id: str | None = Field(default=None, max_length=36)
+    run_id: str | None = Field(default=None, max_length=36)
 
 
 class SaveDraftRequest(BaseModel):
@@ -71,6 +95,10 @@ def _project_store() -> ProjectStore:
     return ProjectStore()
 
 
+def _draft_store() -> IntakeDraftStore:
+    return IntakeDraftStore()
+
+
 def _artifact_store() -> ArtifactStore:
     return ArtifactStore()
 
@@ -81,11 +109,12 @@ def _slugify(value: str) -> str:
 
 
 def _project_payload(project) -> dict[str, Any]:
+    draft = _draft_store().get_owned(project.id, project.owner_id)
     return {
         "id": project.id,
         "title": project.title,
-        "intake": project.intake_json or {},
-        "current_step": project.current_step,
+        "intake": draft.data_json if draft else {},
+        "current_step": draft.current_step if draft else 0,
         "created_at": project.created_at.isoformat(),
         "updated_at": project.updated_at.isoformat(),
     }
@@ -138,14 +167,15 @@ def save_project_draft(
     _database: None = Depends(require_database_ready),
 ) -> dict[str, Any]:
     intake = canonicalize_intake(req.intake)
-    project = _project_store().update_draft(
+    draft = _draft_store().save_owned(
         project_id=project_id,
         owner_id=user.id,
-        intake=intake,
+        data=intake,
         current_step=req.current_step,
     )
-    if project is None:
+    if draft is None:
         raise HTTPException(status_code=404, detail="Project not found.")
+    project = _owned_project_or_404(project_id, user)
     return _project_payload(project)
 
 
@@ -157,8 +187,14 @@ def generate_project_plan(
     _database: None = Depends(require_database_ready),
 ) -> dict[str, Any]:
     project = _owned_project_or_404(project_id, user)
+    draft = _draft_store().get_owned(project.id, user.id)
+    if draft is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={"code": "missing_intake", "message": "Save the intake before generating."},
+        )
     return _queue_plan(
-        intake=project.intake_json,
+        intake=draft.data_json,
         background_tasks=background_tasks,
         owner_id=user.id,
         project_id=project.id,
@@ -259,16 +295,37 @@ def _queue_plan(
     )
     client_slug = _slugify(business_name)
     run_id = str(uuid.uuid4())
-    artifact_directory = _artifact_store().run_directory(run_id)
-    provider, model, configuration = generation_configuration()
-    _store().create(
-        run_id=run_id,
-        client_slug=client_slug,
-        intake=canonical,
-        artifact_path=str(artifact_directory),
-        owner_id=owner_id,
-        project_id=project_id,
-    )
+    if owner_id is None:
+        provider, model, configuration = generation_configuration()
+        _store().create(
+            run_id=run_id,
+            client_slug=client_slug,
+            intake=canonical,
+            provider=provider,
+            model=model,
+            configuration=configuration,
+        )
+    else:
+        try:
+            BillingStore().create_paid_run(
+                owner_id=owner_id,
+                run_id=run_id,
+                client_slug=client_slug,
+                intake=canonical,
+                title=str(business_name),
+                project_id=project_id,
+            )
+        except EntitlementUnavailable as exc:
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail={
+                    "code": "paid_generation_required",
+                    "message": "Purchase or release a Funding-Focused generation credit first.",
+                    "checkout_url": "/billing/checkout-sessions",
+                },
+            ) from exc
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail="Project not found.") from exc
     background_tasks.add_task(_execute_run, run_id)
     return {
         "run_id": run_id,
@@ -345,25 +402,30 @@ def _run_payload(run, *, export_prefix: str) -> dict[str, Any]:
         "error": (
             {"code": run.error_code, "message": run.error_message} if run.error_code else None
         ),
-        "result": _public_result(run.result_json, export_prefix=export_prefix),
+        "result": _public_result(
+            run,
+            _store().artifacts(run.id),
+            export_prefix=export_prefix,
+        ),
         "events": _store().events(run.id),
     }
 
 
-def _public_result(result: dict | None, *, export_prefix: str) -> dict | None:
+def _public_result(run, artifacts: list, *, export_prefix: str) -> dict | None:
+    result = run.output_summary_json
     if result is None:
         return None
-    payload = {
-        key: value for key, value in result.items() if key not in {"artifact_files", "draft_file"}
-    }
-    payload["draft_markdown"] = (
-        _artifact_store().read_text(result.get("run_id", ""), result.get("draft_file"))
-        if "draft_file" in result
-        else result.get("draft_markdown", "")
-    )
+    payload = dict(result)
+    by_type = {artifact.artifact_type: artifact for artifact in artifacts}
+    draft = by_type.get("draft")
+    payload["draft_markdown"] = result.get("draft_markdown", "")
+    if draft is not None and draft.storage_provider == "filesystem":
+        path = _artifact_store().resolve_storage_key(draft.storage_key)
+        payload["draft_markdown"] = path.read_text(encoding="utf-8") if path else ""
     payload["exports"] = {
-        kind: f"{export_prefix}/{filename}" if filename else None
-        for kind, filename in result.get("artifact_files", {}).items()
+        kind: f"{export_prefix}/{artifact.storage_key.split('/', 1)[-1]}"
+        for kind in ("docx", "pdf")
+        if (artifact := by_type.get(kind)) is not None
     }
     return payload
 
@@ -378,6 +440,122 @@ def _artifact_response(run, run_id: str, filename: str) -> FileResponse:
     if path is None:
         raise HTTPException(status_code=404, detail="Artifact not found.")
     return FileResponse(path, filename=filename)
+
+
+@app.get("/billing/package")
+def get_package() -> dict[str, Any]:
+    return FUNDING_READY.public_dict()
+
+
+@app.post("/billing/checkout-sessions", status_code=status.HTTP_201_CREATED)
+def create_checkout_session(
+    user: AuthenticatedUser = Depends(require_user),
+    _database: None = Depends(require_database_ready),
+) -> dict[str, Any]:
+    ProfileStore().create(user.id)
+    store = BillingStore()
+    try:
+        payment = store.start_checkout(user.id)
+    except (BillingConfigurationError, RuntimeError) as exc:
+        raise HTTPException(status_code=503, detail={"code": "billing_not_configured"}) from exc
+    if payment is None:
+        raise HTTPException(status_code=409, detail={"code": "profile_not_ready"})
+    try:
+        checkout = StripeGateway().create_checkout_session(
+            payment_id=payment.id, package=FUNDING_READY
+        )
+        store.attach_checkout(payment.id, checkout)
+    except BillingConfigurationError as exc:
+        store.fail_checkout_creation(payment.id, str(exc))
+        raise HTTPException(status_code=503, detail={"code": "billing_not_configured"}) from exc
+    except Exception as exc:  # Stripe failures are persisted without leaking provider details.
+        store.fail_checkout_creation(payment.id, f"{type(exc).__name__}: {exc}")
+        raise HTTPException(
+            status_code=502,
+            detail={"code": "checkout_unavailable", "message": "Checkout is temporarily unavailable."},
+        ) from exc
+    return {
+        "payment_id": payment.id,
+        "payment_status": "checkout_pending",
+        "checkout_url": checkout.url,
+        "status_url": f"/billing/payments/{payment.id}",
+    }
+
+
+@app.get("/billing/payments/{payment_id}")
+def get_payment_status(
+    payment_id: str,
+    user: AuthenticatedUser = Depends(require_user),
+    _database: None = Depends(require_database_ready),
+) -> dict[str, Any]:
+    store = BillingStore()
+    payment = store.get_payment_owned(payment_id, user.id)
+    if payment is None:
+        raise HTTPException(status_code=404, detail="Payment not found.")
+    entitlement = store.entitlement_for_payment(payment.id)
+    return {
+        "payment_id": payment.id,
+        "package_code": payment.package_code,
+        "payment_status": payment.status,
+        "entitlement": (
+            {
+                "id": entitlement.id,
+                "status": entitlement.status,
+                "revision_limit": entitlement.revision_limit,
+                "revisions_used": entitlement.revisions_used,
+            }
+            if entitlement
+            else None
+        ),
+    }
+
+
+@app.get("/billing/entitlements")
+def get_entitlements(
+    user: AuthenticatedUser = Depends(require_user),
+    _database: None = Depends(require_database_ready),
+) -> dict[str, Any]:
+    return BillingStore().entitlement_summary(user.id)
+
+
+@app.post("/billing/support-requests", status_code=status.HTTP_201_CREATED)
+def create_support_request(
+    body: SupportRequestBody,
+    user: AuthenticatedUser = Depends(require_user),
+    _database: None = Depends(require_database_ready),
+) -> dict[str, Any]:
+    try:
+        support_request = BillingStore().create_support_request(
+            owner_id=user.id,
+            client_request_id=body.client_request_id,
+            kind=body.kind,
+            message=body.message,
+            payment_id=body.payment_id,
+            run_id=body.run_id,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {
+        "support_request_id": support_request.id,
+        "status": support_request.status,
+        "kind": support_request.kind,
+    }
+
+
+@app.post("/billing/webhooks/stripe")
+async def stripe_webhook(
+    request: Request,
+    stripe_signature: str | None = Header(default=None, alias="Stripe-Signature"),
+    _database: None = Depends(require_database_ready),
+) -> dict[str, Any]:
+    payload = await request.body()
+    try:
+        event = StripeGateway().construct_event(payload, stripe_signature)
+    except InvalidWebhook as exc:
+        raise HTTPException(status_code=400, detail={"code": "invalid_signature"}) from exc
+    except BillingConfigurationError as exc:
+        raise HTTPException(status_code=503, detail={"code": "billing_not_configured"}) from exc
+    return BillingStore().process_event(event)
 
 
 @app.get("/healthz")

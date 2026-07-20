@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -115,11 +116,14 @@ class Run(Base):
         ),
     )
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    owner_id: Mapped[str | None] = mapped_column(String(128), index=True, nullable=True)
-    project_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("intake_projects.id", ondelete="SET NULL"), index=True, nullable=True
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_string)
+    project_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("projects.id", ondelete="CASCADE"), index=True
     )
+    entitlement_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("entitlements.id"), index=True, nullable=True
+    )
+    # Presentation metadata only. It is never an ownership or uniqueness key.
     client_slug: Mapped[str] = mapped_column(String(120), index=True)
     status: Mapped[str] = mapped_column(String(24), index=True)
     input_snapshot_json: Mapped[dict] = mapped_column(JSON)
@@ -147,20 +151,6 @@ class Run(Base):
     )
     revisions: Mapped[list[Revision]] = relationship(
         back_populates="run", cascade="all, delete-orphan"
-    )
-
-
-class IntakeProject(Base):
-    __tablename__ = "intake_projects"
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    owner_id: Mapped[str] = mapped_column(String(128), index=True)
-    title: Mapped[str] = mapped_column(String(160), default="Untitled business")
-    intake_json: Mapped[dict] = mapped_column(JSON, default=dict)
-    current_step: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=utc_now_naive, onupdate=utc_now_naive
     )
 
 
@@ -241,3 +231,146 @@ class Revision(Base):
         remote_side="Revision.id", back_populates="children"
     )
     children: Mapped[list[Revision]] = relationship(back_populates="parent")
+
+
+class Payment(Base):
+    """One server-priced Stripe Checkout attempt and its transaction state."""
+
+    __tablename__ = "payments"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('checkout_pending', 'processing', 'paid', 'failed', "
+            "'abandoned', 'partially_refunded', 'refunded')",
+            name="ck_payments_status",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_string)
+    owner_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("profiles.id", ondelete="CASCADE"), index=True
+    )
+    package_code: Mapped[str] = mapped_column(String(64))
+    provider: Mapped[str] = mapped_column(String(24), default="stripe")
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    amount_total: Mapped[int] = mapped_column(Integer)
+    currency: Mapped[str] = mapped_column(String(3))
+    provider_livemode: Mapped[bool] = mapped_column(Boolean, default=False)
+    provider_checkout_session_id: Mapped[str | None] = mapped_column(
+        String(255), unique=True, nullable=True
+    )
+    provider_payment_intent_id: Mapped[str | None] = mapped_column(
+        String(255), unique=True, nullable=True
+    )
+    provider_charge_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
+    failure_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    failure_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    refunded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=utc_now_naive, onupdate=utc_now_naive
+    )
+
+
+class Entitlement(Base):
+    """One paid generation credit, independent of payment and run state."""
+
+    __tablename__ = "entitlements"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('available', 'reserved', 'consumed', 'refunded')",
+            name="ck_entitlements_status",
+        ),
+        CheckConstraint("revision_limit >= 0", name="ck_entitlements_revision_limit"),
+        CheckConstraint("revisions_used >= 0", name="ck_entitlements_revisions_used"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_string)
+    owner_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("profiles.id", ondelete="CASCADE"), index=True
+    )
+    payment_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("payments.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    package_code: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(24), index=True)
+    reserved_run_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    revision_limit: Mapped[int] = mapped_column(Integer)
+    revisions_used: Mapped[int] = mapped_column(Integer, default=0)
+    activated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    refunded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=utc_now_naive, onupdate=utc_now_naive
+    )
+
+
+class WebhookEvent(Base):
+    """Stripe event receipt used for webhook delivery idempotency."""
+
+    __tablename__ = "webhook_events"
+
+    provider_event_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    event_type: Mapped[str] = mapped_column(String(100), index=True)
+    provider_object_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(24))
+    received_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class Refund(Base):
+    """Provider refund state; successful totals determine entitlement revocation."""
+
+    __tablename__ = "refunds"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_string)
+    payment_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("payments.id", ondelete="CASCADE"), index=True
+    )
+    provider_refund_id: Mapped[str] = mapped_column(String(255), unique=True)
+    status: Mapped[str] = mapped_column(String(24), index=True)
+    amount: Mapped[int] = mapped_column(Integer)
+    currency: Mapped[str] = mapped_column(String(3))
+    reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=utc_now_naive, onupdate=utc_now_naive
+    )
+
+
+class SupportRequest(Base):
+    """Idempotent customer support or refund request linked to operational records."""
+
+    __tablename__ = "support_requests"
+    __table_args__ = (
+        UniqueConstraint("owner_id", "client_request_id", name="uq_support_owner_request"),
+        CheckConstraint(
+            "kind IN ('payment', 'refund', 'generation', 'human_qa', 'other')",
+            name="ck_support_requests_kind",
+        ),
+        CheckConstraint(
+            "status IN ('open', 'in_progress', 'resolved', 'closed')",
+            name="ck_support_requests_status",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_string)
+    owner_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("profiles.id", ondelete="CASCADE"), index=True
+    )
+    client_request_id: Mapped[str] = mapped_column(String(100))
+    kind: Mapped[str] = mapped_column(String(24), index=True)
+    status: Mapped[str] = mapped_column(String(24), index=True)
+    payment_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("payments.id", ondelete="SET NULL"), nullable=True
+    )
+    run_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("runs.id", ondelete="SET NULL"), nullable=True
+    )
+    message: Mapped[str] = mapped_column(Text)
+    resolution: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=utc_now_naive, onupdate=utc_now_naive
+    )

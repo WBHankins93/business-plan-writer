@@ -14,7 +14,8 @@ from web_api.app import _queue_plan, _run_payload, get_demo_intake
 
 ROOT = Path(__file__).resolve().parents[1]
 DEMO_INTAKE = ROOT / "sample_intake" / "fictional_bywater_grounds.json"
-WEB_PAGE = ROOT / "web" / "app" / "intake" / "page.tsx"
+WEB_PAGE = ROOT / "web" / "components" / "intake-workspace.tsx"
+WEB_AUTH_MIDDLEWARE = ROOT / "web" / "lib" / "supabase" / "middleware.ts"
 
 
 class FakeRunStore:
@@ -23,13 +24,19 @@ class FakeRunStore:
         self.audit_events = []
 
     def create(
-        self, *, run_id, client_slug, intake, artifact_path, owner_id=None, project_id=None
+        self,
+        *,
+        run_id,
+        client_slug,
+        intake,
+        artifact_path=None,
+        provider,
+        model,
+        configuration,
     ) -> None:
         now = datetime(2026, 7, 19, 12, 0, 0)
         self.run = SimpleNamespace(
             id=run_id,
-            owner_id=owner_id,
-            project_id=project_id,
             client_slug=client_slug,
             status="queued",
             input_snapshot_json=intake,
@@ -49,11 +56,30 @@ class FakeRunStore:
     def get(self, _run_id):
         return self.run
 
+    def get_owned(self, _run_id, _owner_id):
+        return self.run
+
     def events(self, _run_id):
         return self.audit_events
 
     def artifacts(self, _run_id):
         return []
+
+
+class FakeBillingStore:
+    def __init__(self, run_store: FakeRunStore) -> None:
+        self.run_store = run_store
+
+    def create_paid_run(self, *, run_id, client_slug, intake, **_kwargs):
+        self.run_store.create(
+            run_id=run_id,
+            client_slug=client_slug,
+            intake=intake,
+            artifact_path=None,
+            provider="groq",
+            model="test-model",
+            configuration={},
+        )
 
 
 class WebIntakeContractTests(unittest.TestCase):
@@ -94,11 +120,11 @@ class WebIntakeContractTests(unittest.TestCase):
         intake["business_information"]["business_name"] = "Lena's Cakes & Co."
         store = FakeRunStore()
 
-        with patch("web_api.app._store", return_value=store):
+        with patch("web_api.app.BillingStore", return_value=FakeBillingStore(store)):
             response = _queue_plan(
                 intake=intake,
                 background_tasks=BackgroundTasks(),
-                owner_id="user-a",
+                owner_id="11111111-1111-1111-1111-111111111111",
                 project_id="project-a",
                 status_prefix="/runs",
             )
@@ -137,9 +163,9 @@ class WebIntakeContractTests(unittest.TestCase):
             queued = _queue_plan(
                 intake=self.demo,
                 background_tasks=background,
-                owner_id="user-a",
-                project_id="project-a",
-                status_prefix="/runs",
+                owner_id=None,
+                project_id=None,
+                status_prefix="/demo/runs",
             )
 
             self.assertEqual(queued["status"], "queued")

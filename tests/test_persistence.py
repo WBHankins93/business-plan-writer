@@ -252,7 +252,6 @@ class RetentionTests(PersistenceHarness):
         with self.session_factory() as db:
             self.assertIsNone(db.get(Profile, owner_id))
 
-
 class MigrationPolicyTests(unittest.TestCase):
     def test_rls_covers_every_owned_table_and_keeps_events_append_only(self):
         namespace = runpy.run_path(str(MIGRATION))

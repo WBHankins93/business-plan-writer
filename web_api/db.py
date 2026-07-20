@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from pathlib import PurePosixPath
 from typing import Any, Callable
 
 from alembic.config import Config
@@ -56,6 +57,10 @@ class ProfileStore:
         from web_api.models import Profile
 
         with self.session_factory() as db:
+            existing = db.get(Profile, profile_id)
+            if existing is not None:
+                db.expunge(existing)
+                return existing
             profile = Profile(id=profile_id)
             db.add(profile)
             db.commit()
@@ -120,7 +125,6 @@ class ProfileStore:
             db.commit()
             return True
 
-
 class ProjectStore:
     """Owner-scoped project operations and the soft-delete retention boundary."""
 
@@ -132,7 +136,8 @@ class ProjectStore:
 
         with self.session_factory() as db:
             if db.get(Profile, owner_id) is None:
-                raise ValueError("Owner profile does not exist")
+                db.add(Profile(id=owner_id))
+                db.flush()
             project = Project(owner_id=owner_id, title=title[:160] or "Untitled business")
             db.add(project)
             db.commit()
@@ -250,6 +255,10 @@ class IntakeDraftStore:
             draft.data_json = data
             draft.current_step = max(0, current_step)
             draft.updated_at = utc_now_naive()
+            business_name = str(
+                data.get("business_information", {}).get("business_name", "")
+            ).strip()
+            project.title = business_name[:160] or "Untitled business"
             project.updated_at = draft.updated_at
             db.commit()
             db.refresh(draft)
@@ -287,11 +296,18 @@ class RunStore:
         run_id: str,
         client_slug: str,
         intake: dict,
-        artifact_path: str,
-        owner_id: str | None = None,
-        project_id: str | None = None,
+        artifact_path: str | None = None,
+        provider: str = "unrecorded",
+        model: str = "unrecorded",
+        configuration: dict | None = None,
     ) -> None:
-        from web_api.models import Run, RunEvent
+        """Compatibility path for the existing single-key API.
+
+        The beta-owned path is ``create_owned``. The obsolete artifact_path argument
+        is accepted temporarily but deliberately not persisted.
+        """
+        del artifact_path
+        from web_api.models import IntakeDraft, Profile, Project
 
         with self.session_factory() as db:
             if db.get(Profile, LEGACY_PROFILE_ID) is None:
@@ -383,7 +399,6 @@ class RunStore:
         db.add(
             Run(
                 id=run_id,
-                owner_id=owner_id,
                 project_id=project_id,
                 client_slug=client_slug,
                 status="queued",
@@ -407,11 +422,17 @@ class RunStore:
             return run
 
     def get_owned(self, run_id: str, owner_id: str):
-        from web_api.models import Run
+        from web_api.models import Project, Run
 
         with self.session_factory() as db:
             run = db.scalar(
-                select(Run).where(Run.id == run_id, Run.owner_id == owner_id)
+                select(Run)
+                .join(Project, Project.id == Run.project_id)
+                .where(
+                    Run.id == run_id,
+                    Project.owner_id == owner_id,
+                    Project.deleted_at.is_(None),
+                )
             )
             if run is None:
                 return None
@@ -419,20 +440,7 @@ class RunStore:
             return run
 
     def get_demo(self, run_id: str):
-        from web_api.models import Run
-
-        with self.session_factory() as db:
-            run = db.scalar(
-                select(Run).where(
-                    Run.id == run_id,
-                    Run.owner_id.is_(None),
-                    Run.project_id.is_(None),
-                )
-            )
-            if run is None:
-                return None
-            db.expunge(run)
-            return run
+        return self.get_owned(run_id, LEGACY_PROFILE_ID)
 
     def transition(self, run_id: str, status: str, message: str) -> None:
         from web_api.models import Run, RunEvent
@@ -486,7 +494,7 @@ class RunStore:
             db.commit()
 
     def succeed(self, run_id: str, result: dict) -> None:
-        from web_api.models import Artifact, Revision, Run, RunEvent
+        from web_api.models import Artifact, Entitlement, Revision, Run, RunEvent
 
         with self.session_factory() as db:
             run = db.scalar(select(Run).where(Run.id == run_id))
@@ -503,6 +511,17 @@ class RunStore:
             run.error_details = None
             run.started_at = run.started_at or utc_now_naive()
             run.finished_at = utc_now_naive()
+            if run.entitlement_id:
+                entitlement = db.get(Entitlement, run.entitlement_id)
+                if (
+                    entitlement is not None
+                    and entitlement.status == "reserved"
+                    and entitlement.reserved_run_id == run_id
+                ):
+                    entitlement.status = "consumed"
+                    entitlement.reserved_run_id = None
+                    entitlement.consumed_at = utc_now_naive()
+
             artifact_specs = []
             draft_file = result.get("draft_file")
             if draft_file:
@@ -554,7 +573,7 @@ class RunStore:
         message: str,
         operator_details: str,
     ) -> None:
-        from web_api.models import Run, RunEvent
+        from web_api.models import Entitlement, Run, RunEvent
 
         with self.session_factory() as db:
             run = db.scalar(select(Run).where(Run.id == run_id))
@@ -566,6 +585,15 @@ class RunStore:
             run.error_details = operator_details[-8000:]
             run.started_at = run.started_at or utc_now_naive()
             run.finished_at = utc_now_naive()
+            if run.entitlement_id:
+                entitlement = db.get(Entitlement, run.entitlement_id)
+                if (
+                    entitlement is not None
+                    and entitlement.status == "reserved"
+                    and entitlement.reserved_run_id == run_id
+                ):
+                    entitlement.status = "available"
+                    entitlement.reserved_run_id = None
             db.add(
                 RunEvent(run_id=run_id, kind="status", status="failed", message=message)
             )
@@ -627,7 +655,7 @@ class RunStore:
         storage_key: str,
         content_type: str = "text/markdown",
     ):
-        from web_api.models import Artifact, Project, Revision, Run
+        from web_api.models import Artifact, Entitlement, Project, Revision, Run
 
         with self.session_factory() as db:
             owned_run = db.scalar(
@@ -641,6 +669,16 @@ class RunStore:
             )
             if owned_run is None:
                 return None
+            entitlement = (
+                db.get(Entitlement, owned_run.entitlement_id)
+                if owned_run.entitlement_id
+                else None
+            )
+            if entitlement is not None:
+                if entitlement.status != "consumed":
+                    raise ValueError("Paid entitlement is not eligible for revision")
+                if entitlement.revisions_used >= entitlement.revision_limit:
+                    raise ValueError("Paid revision limit reached")
             parent = db.scalar(
                 select(Revision)
                 .where(Revision.run_id == run_id)
@@ -665,94 +703,12 @@ class RunStore:
                 revision_number=parent.revision_number + 1,
             )
             db.add(revision)
+            if entitlement is not None:
+                entitlement.revisions_used += 1
             db.commit()
             db.refresh(revision)
             db.expunge(revision)
             return revision
-
-
-class ProjectStore:
-    """Persistence boundary for user-owned intake drafts."""
-
-    def __init__(self, session_factory: Callable[[], Session] | None = None) -> None:
-        self.session_factory = session_factory or SessionLocal
-
-    def create(self, owner_id: str):
-        from web_api.models import IntakeProject
-
-        with self.session_factory() as db:
-            project = IntakeProject(
-                id=str(uuid.uuid4()),
-                owner_id=owner_id,
-                title="Untitled business",
-                intake_json={},
-                current_step=0,
-            )
-            db.add(project)
-            db.commit()
-            db.refresh(project)
-            db.expunge(project)
-            return project
-
-    def list_owned(self, owner_id: str) -> list:
-        from web_api.models import IntakeProject
-
-        with self.session_factory() as db:
-            projects = db.scalars(
-                select(IntakeProject)
-                .where(IntakeProject.owner_id == owner_id)
-                .order_by(IntakeProject.updated_at.desc())
-            ).all()
-            for project in projects:
-                db.expunge(project)
-            return list(projects)
-
-    def get_owned(self, project_id: str, owner_id: str):
-        from web_api.models import IntakeProject
-
-        with self.session_factory() as db:
-            project = db.scalar(
-                select(IntakeProject).where(
-                    IntakeProject.id == project_id,
-                    IntakeProject.owner_id == owner_id,
-                )
-            )
-            if project is None:
-                return None
-            db.expunge(project)
-            return project
-
-    def update_draft(
-        self,
-        *,
-        project_id: str,
-        owner_id: str,
-        intake: dict,
-        current_step: int,
-    ):
-        from web_api.models import IntakeProject
-
-        with self.session_factory() as db:
-            project = db.scalar(
-                select(IntakeProject).where(
-                    IntakeProject.id == project_id,
-                    IntakeProject.owner_id == owner_id,
-                )
-            )
-            if project is None:
-                return None
-            business_name = str(
-                intake.get("business_information", {}).get("business_name", "")
-            ).strip()
-            project.title = business_name[:160] or "Untitled business"
-            project.intake_json = intake
-            project.current_step = max(0, min(current_step, 4))
-            project.updated_at = datetime.now(UTC).replace(tzinfo=None)
-            db.commit()
-            db.refresh(project)
-            db.expunge(project)
-            return project
-
 
 def initial_progress() -> list[dict[str, Any]]:
     return [
