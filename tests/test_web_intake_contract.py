@@ -14,8 +14,7 @@ from web_api.app import _queue_plan, _run_payload, get_demo_intake
 
 ROOT = Path(__file__).resolve().parents[1]
 DEMO_INTAKE = ROOT / "sample_intake" / "fictional_bywater_grounds.json"
-WEB_PAGE = ROOT / "web" / "components" / "intake-workspace.tsx"
-WEB_AUTH_MIDDLEWARE = ROOT / "web" / "lib" / "supabase" / "middleware.ts"
+WEB_PAGE = ROOT / "web" / "app" / "intake" / "page.tsx"
 
 
 class FakeRunStore:
