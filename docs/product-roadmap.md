@@ -106,7 +106,7 @@ Goal: the generated plan is specific, credible, and reviewable.
 | Q-008 | Add revision modes | Planned | Must | User can request common revisions: more formal, shorter, lender-ready, more financial detail, grant-oriented. |
 | Q-009 | Store before/after revisions | Planned | Should | User can compare or recover prior drafts. |
 | Q-010 | Polish DOCX/PDF formatting | Planned | Must | Export includes cover page, clean headings, page breaks, and readable tables. |
-| Q-011 | Publish example downloadable plan | Planned | Should | Marketing/product can point to a realistic sample output. |
+| Q-011 | Publish example downloadable plan | Shipped | Should | Marketing/product can point to a realistic sample output. |
 
 6/10 exit criteria:
 - Generated sample plans score 7/10 or higher on the quality rubric.
@@ -127,8 +127,8 @@ Goal: a customer can buy, complete intake, generate, revise, and download withou
 | P-006 | Add package definitions | Planned | Must | Starter, Funding Ready, and Reviewed Plan packages are defined in-product. |
 | P-007 | Add post-payment project dashboard | Planned | Must | User sees purchased plan, status, exports, and revisions. |
 | P-008 | Add revision counter | Planned | Should | Included revision passes are tracked and visible. |
-| P-009 | Add terms, disclaimers, and privacy language | Planned | Must | Product states AI-assisted nature, no legal/financial advice, and user review responsibility. |
-| P-010 | Add support contact path | Planned | Must | Customer can request help or report a bad output. |
+| P-009 | Add terms, disclaimers, and privacy language | In Progress | Must | Public beta page states AI-assisted nature, no legal/financial advice, privacy limits, and user review responsibility; formal terms and retention policy remain. |
+| P-010 | Add support contact path | In Progress | Must | Public beta directs invited users to reply to their invitation; a dedicated support workflow remains. |
 | P-011 | Add email notifications | Planned | Should | User receives draft-ready and export-ready notifications. |
 | P-012 | Polish responsive UI states | Planned | Must | Empty, loading, failed, mobile, and success states look intentional. |
 
@@ -144,11 +144,11 @@ Goal: validate one niche and prove the product can sell, deliver, and support re
 | ID | Initiative | Status | Priority | Acceptance Criteria |
 |---|---|---|---|---|
 | L-001 | Choose first beachhead niche | Shipped | Must | One niche is selected and all near-term messaging targets it. |
-| L-002 | Create niche landing page | Planned | Must | Page explains problem, offer, deliverables, price, examples, scope boundaries, and no-approval disclaimer. |
+| L-002 | Create niche landing page | Shipped | Must | Page explains problem, fit, offer, deliverables, price, limitations, process, human review, and next step. |
 | L-003 | Define launch offer | Shipped | Must | Price, revision count, turnaround promise, refund policy, and scope limits are documented. |
-| L-004 | Add sample screenshots or output preview | Planned | Must | Prospects can see what they are buying. |
+| L-004 | Add sample screenshots or output preview | Shipped | Must | Public page includes representative previews and downloadable fictional DOCX/PDF files. |
 | L-005 | Run 10 beta customers through the flow | Planned | Must | At least 10 real users complete intake or attempt to. |
-| L-006 | Measure funnel analytics | Planned | Must | Landing conversion, checkout conversion, intake completion, generation success, export download, and revision count are tracked. |
+| L-006 | Measure funnel analytics | In Progress | Must | CTA click, account start, and sample download hooks are implemented; checkout and lifecycle conversion tracking remain. |
 | L-007 | Measure support burden | Planned | Must | Average support time per customer is known. |
 | L-008 | Measure model cost per completed plan | Planned | Must | Cost per plan includes retries and revisions. |
 | L-009 | Collect user quality ratings | Planned | Must | Users rate output usefulness and whether they would send it to a lender/investor/grant reviewer. |
@@ -219,7 +219,7 @@ Independent market research, a custom spreadsheet, legal/accounting advice, and 
 |---|---|---|
 | Generic AI output reduces trust | High | Quality rubric, critic step, industry modes, human review option. |
 | Users provide weak intake | High | Guided examples, readiness gate, follow-up questions, "I do not know" paths. |
-| $497 price feels high versus AI generators | Medium | Position as done-for-you funding package, not software subscription. |
+| $750 price feels high before public proof exists | Medium | Position as a human-reviewed professional service, show the fictional sample, and validate willingness to pay before changing price. |
 | Liability around funding/financial claims | High | Disclaimers, user review, conservative prompts, optional expert review. |
 | Backend/model failures hurt confidence | High | Progress states, retries, clear errors, monitoring, admin tooling. |
 | Support burden eats margin | Medium | Better onboarding, QA checklist, revision templates, scoped packages. |
@@ -233,6 +233,7 @@ Independent market research, a custom spreadsheet, legal/accounting advice, and 
 | 2026-07-03 | Use 8/10 as the pre-launch readiness target. | 10/10 polish should not block market validation. |
 | 2026-07-03 | Position against business plan writing services, not cheap AI generators. | The product has better margin and perceived value as a funding-ready package. |
 | 2026-07-03 | Favor a $497 Funding Ready offer as the initial commercial hypothesis. | Raw model cost is low enough to include revisions while preserving margin. |
+| 2026-07-19 | Focus the private-beta landing page on operating local-service-business owners seeking expansion financing. | A narrow funding conversation makes the problem, fit, sample, and offer easier to evaluate without implying unsupported research or approval. |
 | 2026-07-19 | Use Business Plan Writer publicly, with Ben Hankins as the named practitioner; keep Sproutflow out of launch messaging except where it is the actual legal payee. | The buyer needs one descriptive service identity and one accountable human, not three competing names. |
 | 2026-07-19 | Target owners of operating US local service businesses preparing for SBA-backed or conventional expansion financing. | This buyer has a specific job-to-be-done and is more likely than an idea-stage founder to have usable operating and financial inputs. |
 | 2026-07-19 | Validate one $750 Funding-Focused Business Plan Service with seven-day delivery after complete intake and two revision rounds. | One fixed offer makes early conversion, labor, quality, and willingness-to-pay data interpretable. See `docs/launch-playbook.md`. |
@@ -245,3 +246,4 @@ When a feature ships, update the relevant row and add a note here:
 | Date | Feature ID | Change | Evidence |
 |---|---|---|---|
 | YYYY-MM-DD | R-000 | Marked Shipped / changed scope / cut | Commit, test, screenshot, customer result, or doc link. |
+| 2026-07-19 | L-001, L-002, L-004, Q-011 | Shipped niche landing page and fictional sample; moved trust, support, offer policy, and analytics items to In Progress where operational work remains. | `web/app/page.tsx`, public sample DOCX/PDF, production build, automated accessibility check, and marketing contract tests. |

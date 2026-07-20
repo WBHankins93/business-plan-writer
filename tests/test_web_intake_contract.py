@@ -14,7 +14,7 @@ from web_api.app import GeneratePlanRequest, generate_plan, get_demo_intake, get
 
 ROOT = Path(__file__).resolve().parents[1]
 DEMO_INTAKE = ROOT / "sample_intake" / "fictional_bywater_grounds.json"
-WEB_PAGE = ROOT / "web" / "app" / "page.tsx"
+WEB_PAGE = ROOT / "web" / "app" / "intake" / "page.tsx"
 
 
 class FakeRunStore:
