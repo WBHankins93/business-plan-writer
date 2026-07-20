@@ -106,7 +106,7 @@ Goal: the generated plan is specific, credible, and reviewable.
 | Q-008 | Add revision modes | Planned | Must | User can request common revisions: more formal, shorter, lender-ready, more financial detail, grant-oriented. |
 | Q-009 | Store before/after revisions | Planned | Should | User can compare or recover prior drafts. |
 | Q-010 | Polish DOCX/PDF formatting | Planned | Must | Export includes cover page, clean headings, page breaks, and readable tables. |
-| Q-011 | Publish example downloadable plan | Planned | Should | Marketing/product can point to a realistic sample output. |
+| Q-011 | Publish example downloadable plan | Shipped | Should | Marketing/product can point to a realistic sample output. |
 
 6/10 exit criteria:
 - Generated sample plans score 7/10 or higher on the quality rubric.
@@ -127,8 +127,8 @@ Goal: a customer can buy, complete intake, generate, revise, and download withou
 | P-006 | Add package definitions | Planned | Must | Starter, Funding Ready, and Reviewed Plan packages are defined in-product. |
 | P-007 | Add post-payment project dashboard | Planned | Must | User sees purchased plan, status, exports, and revisions. |
 | P-008 | Add revision counter | Planned | Should | Included revision passes are tracked and visible. |
-| P-009 | Add terms, disclaimers, and privacy language | Planned | Must | Product states AI-assisted nature, no legal/financial advice, and user review responsibility. |
-| P-010 | Add support contact path | Planned | Must | Customer can request help or report a bad output. |
+| P-009 | Add terms, disclaimers, and privacy language | In Progress | Must | Public beta page states AI-assisted nature, no legal/financial advice, privacy limits, and user review responsibility; formal terms and retention policy remain. |
+| P-010 | Add support contact path | In Progress | Must | Public beta directs invited users to reply to their invitation; a dedicated support workflow remains. |
 | P-011 | Add email notifications | Planned | Should | User receives draft-ready and export-ready notifications. |
 | P-012 | Polish responsive UI states | Planned | Must | Empty, loading, failed, mobile, and success states look intentional. |
 
@@ -143,12 +143,12 @@ Goal: validate one niche and prove the product can sell, deliver, and support re
 
 | ID | Initiative | Status | Priority | Acceptance Criteria |
 |---|---|---|---|---|
-| L-001 | Choose first beachhead niche | Planned | Must | One niche is selected and all near-term messaging targets it. |
-| L-002 | Create niche landing page | Planned | Must | Page explains problem, offer, deliverables, price, examples, and guarantee. |
-| L-003 | Define launch offer | Planned | Must | Price, revision count, turnaround promise, refund policy, and scope limits are documented. |
-| L-004 | Add sample screenshots or output preview | Planned | Must | Prospects can see what they are buying. |
+| L-001 | Choose first beachhead niche | Shipped | Must | Private-beta messaging targets first-time local-business owners preparing for SBA or bank-loan conversations. |
+| L-002 | Create niche landing page | Shipped | Must | Page explains problem, fit, offer, deliverables, price, limitations, process, and next step. |
+| L-003 | Define launch offer | In Progress | Must | $497 Funding Ready beta offer and one-revision scope are public; exact turnaround and refund policy await the payment/support workflow. |
+| L-004 | Add sample screenshots or output preview | Shipped | Must | Public page includes representative previews and downloadable fictional DOCX/PDF files. |
 | L-005 | Run 10 beta customers through the flow | Planned | Must | At least 10 real users complete intake or attempt to. |
-| L-006 | Measure funnel analytics | Planned | Must | Landing conversion, checkout conversion, intake completion, generation success, export download, and revision count are tracked. |
+| L-006 | Measure funnel analytics | In Progress | Must | CTA click, account start, and sample download hooks are implemented; checkout and lifecycle conversion tracking remain. |
 | L-007 | Measure support burden | Planned | Must | Average support time per customer is known. |
 | L-008 | Measure model cost per completed plan | Planned | Must | Cost per plan includes retries and revisions. |
 | L-009 | Collect user quality ratings | Planned | Must | Users rate output usefulness and whether they would send it to a lender/investor/grant reviewer. |
@@ -236,6 +236,7 @@ Current preferred launch offer:
 | 2026-07-03 | Use 8/10 as the pre-launch readiness target. | 10/10 polish should not block market validation. |
 | 2026-07-03 | Position against business plan writing services, not cheap AI generators. | The product has better margin and perceived value as a funding-ready package. |
 | 2026-07-03 | Favor a $497 Funding Ready offer as the initial commercial hypothesis. | Raw model cost is low enough to include revisions while preserving margin. |
+| 2026-07-19 | Focus the private-beta landing page on local-business SBA and bank-loan applicants. | A narrow funding conversation makes the problem, fit, sample, and offer easier to evaluate without implying unsupported research or human review. |
 
 ## Update Template
 
@@ -244,3 +245,4 @@ When a feature ships, update the relevant row and add a note here:
 | Date | Feature ID | Change | Evidence |
 |---|---|---|---|
 | YYYY-MM-DD | R-000 | Marked Shipped / changed scope / cut | Commit, test, screenshot, customer result, or doc link. |
+| 2026-07-19 | L-001, L-002, L-004, Q-011 | Shipped niche landing page and fictional sample; moved trust, support, offer policy, and analytics items to In Progress where operational work remains. | `web/app/page.tsx`, public sample DOCX/PDF, production build, automated accessibility check, and marketing contract tests. |
