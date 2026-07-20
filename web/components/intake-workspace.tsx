@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import { API_BASE_URL, authenticatedFetch, SessionExpiredError } from "../lib/api";
+import { DEMO_INTAKE } from "../lib/demo-intake";
 import { createClient } from "../lib/supabase/client";
 
 type Tier = 1 | 2 | 3;
@@ -228,7 +229,6 @@ export function IntakeWorkspace({ projectId, demoMode = false }: { projectId?: s
   const [critic, setCritic] = useState<CriticOutput>({});
   const [exports, setExports] = useState<{ docx: string | null; pdf: string | null }>({ docx: null, pdf: null });
   const [runState, setRunState] = useState<"idle" | "queueing" | "running">("idle");
-  const [demoLoading, setDemoLoading] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [runId, setRunId] = useState("");
@@ -369,33 +369,19 @@ export function IntakeWorkspace({ projectId, demoMode = false }: { projectId?: s
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const loadDemo = async () => {
-    setDemoLoading(true);
+  const loadDemo = () => {
     setError("");
-    setNotice("Loading the fictional Bywater Grounds intake…");
-    try {
-      const response = await fetch(`${API_BASE_URL}/demo/intake`);
-      if (!response.ok) throw new Error("The demo intake could not be loaded. Confirm the API is running and try again.");
-      const fixture = await response.json();
-      const demo = canonicalIntake(fixture);
-      const errors = validateFields(demo, ALL_QUESTIONS);
-      if (Object.keys(errors).length) throw new Error("The demo fixture is incomplete and cannot be used.");
-      setIntake(demo);
-      setFieldErrors({});
-      setDraft("");
-      setWarnings({ missing_required: [], thin_fields: [] });
-      setCritic({});
-      setExports({ docx: null, pdf: null });
-      setRunId("");
-      setSteps([]);
-      setActiveStep(REVIEW_STEP_INDEX);
-      setNotice("Demo intake loaded. Review the answers, then generate the plan.");
-    } catch (caught: unknown) {
-      setNotice("");
-      setError(caught instanceof Error ? caught.message : "The demo intake could not be loaded.");
-    } finally {
-      setDemoLoading(false);
-    }
+    const demo = canonicalIntake(DEMO_INTAKE);
+    setIntake(demo);
+    setFieldErrors({});
+    setDraft("");
+    setWarnings({ missing_required: [], thin_fields: [] });
+    setCritic({});
+    setExports({ docx: null, pdf: null });
+    setRunId("");
+    setSteps([]);
+    setActiveStep(REVIEW_STEP_INDEX);
+    setNotice("Demo intake loaded. Review the answers, then generate the plan.");
   };
 
   const pollRun = async (id: string): Promise<RunResponse> => {
@@ -561,7 +547,7 @@ export function IntakeWorkspace({ projectId, demoMode = false }: { projectId?: s
           <h1>Build the case for your business.</h1>
           <p className="heroCopy">Answer one focused set of questions at a time. The workflow turns your evidence and estimates into a plan you can review, refine, and export.</p>
         </div>
-        {demoMode && <button className="demoButton" type="button" onClick={loadDemo} disabled={demoLoading || isBusy} aria-busy={demoLoading}>{demoLoading ? "Loading demo…" : "Load fictional demo"}</button>}
+        {demoMode && <button className="demoButton" type="button" onClick={loadDemo} disabled={isBusy}>Load fictional demo</button>}
       </header>
 
       <nav className="intakeNav" aria-label="Intake steps">

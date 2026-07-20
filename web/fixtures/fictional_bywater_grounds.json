@@ -1,0 +1,89 @@
+{
+  "_meta": {
+    "client": "Bywater Grounds Coffee House (FICTIONAL — demo/gallery/manual-test case)",
+    "intake_date": "2026-07-10",
+    "plan_version": "1.0",
+    "purpose": "Manual pipeline validation + anonymized Fiverr gallery sample. All details fictional."
+  },
+  "business_information": {
+    "business_name": "Bywater Grounds Coffee House",
+    "owner_name": "Marisol Devereaux",
+    "ownership_structure": "LLC (single-member, Louisiana)",
+    "industry": "Food & beverage / Specialty coffee retail",
+    "business_stage": "Pre-launch startup — lease identified, seeking financing to complete build-out and open within 6 months of funding.",
+    "funding_purpose": "SBA 7(a) loan for leasehold improvements, equipment purchase, initial inventory, and 6 months working capital reserve.",
+    "funding_amount": "$285,000",
+    "location": "3201 Dauphine Street, New Orleans, Louisiana 70117 (Bywater neighborhood)",
+    "year_founded": "2026"
+  },
+  "management_details": {
+    "owner_background": "Marisol Devereaux has 11 years in specialty coffee and hospitality: 4 years as a barista and shift lead at a high-volume French Quarter cafe, 5 years as general manager of a two-location specialty roaster in Baton Rouge where she managed 14 staff, P&L responsibility of $1.1M annual revenue, vendor contracts, and a wholesale program that grew 40% under her management, and 2 years as a hospitality operations consultant for independent restaurants across the Gulf South. SCA (Specialty Coffee Association) certified in Brewing and Sensory Skills. Completed the Goldman Sachs 10,000 Small Businesses program cohort at Delgado Community College in 2025.",
+    "management_team": "Solo owner-operator at launch. Marisol handles operations, purchasing, staffing, and community programming. Bookkeeping outsourced to a local CPA firm; payroll via Gusto.",
+    "hiring_plans": "Launch team of 5 part-time baristas (mix of 20-30 hrs/week) hired and trained in month -1 before opening. Shift lead promoted internally by month 6 ($17/hr + tips). Kitchen prep hire in month 4 when pastry program moves in-house. Year 2: assistant manager to enable owner focus on catering/wholesale expansion.",
+    "advisors": "Former regional operations director of a 12-store coffee chain (informal mentor, monthly calls); SCORE New Orleans mentor assigned via SBA pre-qualification process."
+  },
+  "product_service_summary": {
+    "services_offered": "Specialty espresso and brewed coffee program featuring Gulf Coast roasters on rotation. Signature drink menu with New Orleans identity (chicory cold brew, praline latte, cafe au lait flight). Locally sourced pastries (consignment at launch, in-house by month 4). Light lunch menu: three rotating sandwiches and one seasonal salad. Retail shelf: whole-bean bags from featured roasters, house-branded merchandise, brewing equipment. Event hosting: monthly cupping classes, open-mic nights, and neighborhood association meetings (space rental + minimum spend).",
+    "service_delivery": "2,100 sq ft corner storefront with 38 interior seats and 12 patio seats. Counter service model, 6:30am-6pm daily. Online ordering for pickup via Square. Catering drop-off within Orleans Parish (coffee boxes, pastry trays) ordered 48 hours ahead. Wholesale cold brew kegs to 3-5 neighborhood restaurants beginning month 8.",
+    "pricing_structure": "Espresso drinks $4.25-$6.75; brewed coffee $3.00-$4.50; signature drinks $6.50-$7.50; pastries $3.50-$5.50; sandwiches $11-$14; retail beans $18-$24/bag; cupping classes $35/seat; private events $150 room fee + $300 minimum spend; catering coffee box $32 (serves 10); wholesale cold brew keg $95.",
+    "future_offerings": "In-house roasting program in Year 3 contingent on wholesale demand (equipment ~$45k, deliberately excluded from this loan request). Subscription bean program via website in Year 2.",
+    "differentiators": "The Bywater currently has no dedicated specialty coffee house within a 0.7-mile radius despite being one of the city's densest walkable neighborhoods for creative professionals and tourism (short-term rentals). Neighborhood-first positioning: local roaster rotation instead of competing with roasters, community programming that converts the space into a third place, and an owner with documented multi-unit P&L management experience rather than a first-time operator."
+  },
+  "sales_strategy": {
+    "sales_process": "Walk-in counter sales (85% of revenue at maturity). Online pickup orders via Square site. Catering inquiries through website form with 48-hour turnaround commitment. Wholesale: direct owner outreach to 12 identified restaurants/bars within the neighborhood, sampling visits in months 6-8, simple monthly invoicing via QuickBooks.",
+    "payment_terms": "Retail: point of sale (card-dominant, ~90% card expected). Catering: 50% deposit at booking, balance on delivery. Wholesale: net-15 invoicing after first two prepaid orders.",
+    "retention_strategy": "Square loyalty program (10th drink free), Sunday neighborhood residents discount (10% with 70117 ID), monthly event calendar to drive repeat visits, email list built from wifi login and loyalty signups with a weekly single-email cadence.",
+    "referral_sources": "Bywater Neighborhood Association partnership, cross-promotion with adjacent businesses (bookstore, yoga studio, gallery), short-term-rental host welcome-basket program (coffee voucher cards), local food media outreach at launch."
+  },
+  "market_analysis": {
+    "geographic_market": "Primary: Bywater and Marigny neighborhoods of New Orleans (~1.2 mile radius, approx. 14,000 residents). Secondary: St. Claude corridor commuters and French Quarter tourist overflow seeking neighborhood experiences. Tertiary: citywide catering within Orleans Parish.",
+    "target_customer": "Primary: creative professionals and remote workers aged 25-45 living in or near Bywater — high coffee frequency (5+ visits/week), laptop-friendly needs, values local sourcing. Secondary: tourists in neighborhood short-term rentals (est. 400+ active listings within a mile) seeking an authentic non-Quarter experience. Tertiary: neighborhood residents 45+ for morning ritual traffic and event attendance.",
+    "market_size": "New Orleans metro coffee shop market estimated at $110M+ annually. Bywater/Marigny trade area estimated at $2.8-3.4M in annual coffee/cafe spend based on population, tourism volume, and comparable neighborhood benchmarks. Capturing 12-15% of trade area spend supports the Year 2 revenue target.",
+    "industry_state": "Specialty coffee remains a growth segment nationally, with neighborhood-format shops outperforming downtown locations post-2020 as remote work shifted daytime traffic to residential districts. New Orleans specifically has seen sustained cafe growth in residential corridors (Freret, Oak, St. Claude) while the Bywater remains underserved relative to its density and tourism.",
+    "customer_pain_points": "No walkable specialty option in the neighborhood (nearest quality shops are 1+ mile away); existing nearby options are either bars with minimal coffee programs or grab-and-go with no seating; remote workers lack a reliable laptop-tolerant daytime space; short-term-rental guests default to chains or leave the neighborhood for coffee."
+  },
+  "advertising_strategy": {
+    "initial_marketing": "Launch sequence: 4-week soft-open for neighborhood residents with loyalty double-punch, grand opening event with local musicians and free drip day covered by roaster partner, local food media pitch (Gambit, NOLA.com, Eater NOLA), Instagram presence built 8 weeks pre-open documenting build-out, and 5,000-piece direct-mail postcard drop to 70117/70116 with a first-drink offer.",
+    "marketing_budget": "$3,500 pre-opening (postcards, grand opening, signage extras); $600/month ongoing (boosted local posts, event materials, loyalty program costs) = approximately 2.5% of projected revenue, scaling with sales.",
+    "expansion_marketing": "Year 2: catering-specific landing page and Google Ads for 'office coffee catering New Orleans'; wholesale one-pager for restaurant outreach; subscription program email funnel.",
+    "digital_presence": "Website (Square Online) with menu, ordering, catering form, and event calendar. Instagram as primary channel (neighborhood content, not product-only). Google Business Profile optimized for 'coffee shop Bywater' searches. Yelp/TripAdvisor claimed at launch for tourist discovery."
+  },
+  "competition": {
+    "main_competitors": "Within trade area: one bar-cafe hybrid with limited morning coffee focus and no specialty program, one grab-and-go window with no seating, and one bakery with drip-only coffee. Adjacent neighborhoods: two established specialty shops in the Marigny/St. Claude corridor (1.1 and 1.4 miles away) that demonstrate demand but do not serve Bywater's walkable core. Indirect: chain drive-through on St. Claude Avenue, home brewing.",
+    "competitive_edge": "Only full-service specialty coffee house with seating in the neighborhood's walkable core; operator with multi-unit management and P&L track record; local-roaster rotation model creates ongoing novelty and roaster co-marketing; community programming generates non-coffee revenue and defensible neighborhood loyalty that a future entrant cannot quickly replicate.",
+    "market_gaps": "Daytime third-place seating for remote workers; late-afternoon coffee (existing options close by 2pm); event space for small neighborhood gatherings; quality catering for the growing number of small offices and film productions operating in the area."
+  },
+  "strategy_and_implementation": {
+    "business_strategy": "Establish the neighborhood's default coffee house within 12 months through product quality and community programming, reach cash-flow positive operations by month 10, then layer higher-margin revenue (catering, wholesale cold brew, events) on top of stable retail traffic in Year 2 rather than pursuing a second location prematurely.",
+    "near_term_priorities": "Months 1-2 post-funding: complete build-out (licensed contractor bid in hand), equipment installation, permitting (occupational license, health, ABO for future beer/wine). Month 3: hire and train launch team, soft open. Month 4: grand opening, pastry program in-house. Months 6-8: wholesale sampling program. Month 10: cash-flow positive target. Month 12: first annual review against plan, shift-lead promotion.",
+    "key_risks": "Construction/permitting delays in Orleans Parish (mitigation: 6-month working capital reserve in loan request, contractor with city experience); summer seasonality dip (mitigation: iced program, tourist-targeted marketing, event revenue); key-person dependency on owner (mitigation: documented SOPs from day one, month-6 shift lead, Year-2 assistant manager); coffee commodity price volatility (mitigation: rotating multi-roaster model avoids single-supplier lock-in).",
+    "partnerships": "Featured roaster rotation agreements (co-marketing included), Bywater Neighborhood Association venue partnership, consignment pastry agreement with established local bakery for launch period."
+  },
+  "milestones": {
+    "twelve_month_goals": "Open within 6 months of funding. 320 average daily transactions by month 12. $46,000 average monthly revenue by month 12. Cash-flow positive by month 10. Loyalty program at 1,200 members. Two wholesale accounts active. All permits and health scores maintained at highest grade.",
+    "twenty_four_month_goals": "$620,000 Year 2 revenue with catering and wholesale contributing 12% of sales. Assistant manager hired and owner hours reduced to 50/week. Subscription program launched. Debt service coverage ratio above 1.5. Evaluate in-house roasting feasibility with real wholesale demand data.",
+    "key_metrics": "Daily transactions, average ticket ($8.40 target blended), month-over-month revenue growth, labor cost as % of revenue (target 28-32%), COGS % (target 30-33%), loyalty repeat rate, catering pipeline value, DSCR."
+  },
+  "financial_information": {
+    "cash_flow_narrative": "The loan funds one-time build-out and equipment costs plus a 6-month working capital reserve, so operating cash flow is not dependent on immediate profitability. Revenue ramps from a conservative $22,000 in month 1 (soft open) to $46,000 by month 12 as loyalty, events, and wholesale layer in. Fixed monthly obligations (rent $4,800, loan service ~$3,300, insurance ~$650) total under 20% of mature monthly revenue. The model reaches operating break-even in month 7 and cumulative cash-flow positive in month 10, leaving 3+ months of reserve untouched in the base case.",
+    "financial_plan_summary": "Total project cost $342,000: $285,000 SBA 7(a) loan + $57,000 owner equity injection (17%). Uses: leasehold improvements $128,000; equipment (espresso, brewing, refrigeration, POS, furniture) $94,000; initial inventory and smallwares $18,000; pre-opening payroll/training/marketing $22,500; working capital reserve $62,000; contingency $17,500. Loan modeled at 10-year term, prime + 2.75%. Year 1 revenue $412,000 with net operating margin reaching 11% by Q4; Year 2 revenue $620,000 at 13.5% net margin; Year 3 $710,000 at 15% supporting DSCR of 1.9.",
+    "break_even_point": "Operating break-even at approximately $31,500 monthly revenue (month 7 in base case), calculated against fixed costs of $11,900/month and blended contribution margin of 62% after COGS and variable labor."
+  },
+  "income": {
+    "beginning_balance": "$57,000 owner equity injection deposited at loan closing; $62,000 of loan proceeds designated as working capital reserve, held in operating account.",
+    "client_volume": "Ramp: 145 daily transactions month 1 → 220 by month 4 → 280 by month 8 → 320 by month 12. Blended average ticket $8.40 (retail beans, food attach, and events lift the pure-beverage average).",
+    "monthly_revenue_projection": "M1 $22,000; M2 $27,500; M3 $31,000; M4 $34,500; M5 $36,000; M6 $37,500; M7 $39,000; M8 $41,000; M9 $42,500; M10 $44,000; M11 $45,000; M12 $46,000. Assumes 30.4 operating days/month, seasonality adjusted (summer dip offset by iced program and tourism).",
+    "annual_revenue_projection": "Year 1: $412,000. Year 2: $620,000 (full-year mature retail + catering/wholesale layer). Year 3: $710,000.",
+    "revenue_sources": "Beverage 58%, food 22%, retail merchandise/beans 9%, catering 6%, wholesale cold brew 3%, events/space 2% (Year 2 mature mix)."
+  },
+  "expenses": {
+    "payroll": "Launch: 5 part-time baristas at $11/hr + pooled tips, ~$13,400/month including payroll taxes at month-4 staffing. Owner draw $4,000/month beginning month 4. Shift lead premium from month 6. Target labor 28-32% of revenue.",
+    "rent_utilities": "Rent $4,800/month (5-year lease, two 5-year options, 3% annual escalator, 4 months abatement during build-out negotiated). Utilities/internet/waste estimated $1,450/month.",
+    "cogs": "Coffee, dairy/alternatives, food, packaging: 30-33% of revenue blended. Roaster rotation contracts priced at $9.75-11.50/lb with co-marketing offsets.",
+    "advertising_expense": "$3,500 pre-opening; $600/month ongoing per marketing plan; ~2.5% of revenue at maturity.",
+    "other_operating": "Insurance $650/month (GL, property, workers comp); POS/software $185/month (Square, Gusto, QuickBooks); repairs/maintenance reserve $400/month; professional services (CPA) $350/month; merchant processing ~2.6% of card sales.",
+    "taxes": "Louisiana sales tax collected and remitted monthly (9.45% Orleans Parish); federal/state income tax via pass-through LLC estimated quarterly; property taxes included in NNN charges within rent figure.",
+    "loans_debt_service": "SBA 7(a) $285,000, 10-year term at prime + 2.75%: estimated $3,300/month P&I. No other debt. DSCR 1.5+ by Year 2, 1.9 by Year 3.",
+    "capital_assets": "Espresso machine and grinders $28,000; brewing/refrigeration $31,000; furniture/fixtures $22,000; POS and tech $6,500; signage $6,500. Depreciated per CPA schedule; no vehicle assets (catering via owner vehicle with mileage reimbursement)."
+  }
+}
