@@ -3,25 +3,29 @@ from __future__ import annotations
 import json
 import os
 import re
-import secrets
 import uuid
-from pathlib import Path
 from typing import Any
 
-from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Query, status
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from intake.schema import canonicalize_intake, intake_request_errors
-from web_api.artifacts import ArtifactStore, DownloadAuthorizer
-from web_api.config import PROJECT_ROOT, generation_configuration
-from web_api.db import RunStore, initial_progress, migration_state
+from web_api.artifacts import ArtifactStore
+from web_api.auth import AuthenticatedUser, require_user
+from web_api.config import PROJECT_ROOT
+from web_api.db import ProjectStore, RunStore, initial_progress, migration_state
 from web_api.execution import ExecutionFailed, ExecutionTimedOut, SubprocessExecutor
 
 
 class GeneratePlanRequest(BaseModel):
     intake: dict[str, Any] = Field(..., description="Business intake payload")
+
+
+class SaveDraftRequest(BaseModel):
+    intake: dict[str, Any] = Field(..., description="Current business intake draft")
+    current_step: int = Field(default=0, ge=0, le=4)
 
 
 ALLOWED_ORIGINS = [
@@ -35,19 +39,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type", "X-API-Key"],
+    allow_methods=["GET", "POST", "PUT", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
-
-
-def require_api_key(x_api_key: str | None = Header(default=None, alias="X-API-Key")) -> None:
-    """Require X-API-Key when BUSINESS_PLAN_API_KEY is configured."""
-    api_key = os.getenv("BUSINESS_PLAN_API_KEY")
-    if api_key and (x_api_key is None or not secrets.compare_digest(x_api_key, api_key)):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"code": "unauthorized", "message": "A valid X-API-Key header is required."},
-        )
 
 
 def require_database_ready() -> None:
@@ -64,8 +58,17 @@ def require_database_ready() -> None:
         )
 
 
+def require_demo_enabled() -> None:
+    if os.getenv("ENABLE_DEMO_MODE", "false").lower() not in {"1", "true", "yes"}:
+        raise HTTPException(status_code=404, detail="Demo mode is not enabled.")
+
+
 def _store() -> RunStore:
     return RunStore()
+
+
+def _project_store() -> ProjectStore:
+    return ProjectStore()
 
 
 def _artifact_store() -> ArtifactStore:
@@ -77,15 +80,170 @@ def _slugify(value: str) -> str:
     return cleaned or "client"
 
 
-@app.post("/generate-plan", status_code=status.HTTP_202_ACCEPTED)
-def generate_plan(
-    req: GeneratePlanRequest,
-    background_tasks: BackgroundTasks,
-    _: None = Depends(require_api_key),
+def _project_payload(project) -> dict[str, Any]:
+    return {
+        "id": project.id,
+        "title": project.title,
+        "intake": project.intake_json or {},
+        "current_step": project.current_step,
+        "created_at": project.created_at.isoformat(),
+        "updated_at": project.updated_at.isoformat(),
+    }
+
+
+def _project_summary_payload(project) -> dict[str, Any]:
+    payload = _project_payload(project)
+    payload.pop("intake")
+    return payload
+
+
+def _owned_project_or_404(project_id: str, user: AuthenticatedUser):
+    project = _project_store().get_owned(project_id, user.id)
+    if project is None:
+        # A 404 avoids disclosing whether another user owns this identifier.
+        raise HTTPException(status_code=404, detail="Project not found.")
+    return project
+
+
+@app.post("/projects", status_code=status.HTTP_201_CREATED)
+def create_project(
+    user: AuthenticatedUser = Depends(require_user),
+    _database: None = Depends(require_database_ready),
+) -> dict[str, Any]:
+    return _project_payload(_project_store().create(user.id))
+
+
+@app.get("/projects")
+def list_projects(
+    user: AuthenticatedUser = Depends(require_user),
+    _database: None = Depends(require_database_ready),
+) -> list[dict[str, Any]]:
+    return [_project_summary_payload(project) for project in _project_store().list_owned(user.id)]
+
+
+@app.get("/projects/{project_id}")
+def get_project(
+    project_id: str,
+    user: AuthenticatedUser = Depends(require_user),
+    _database: None = Depends(require_database_ready),
+) -> dict[str, Any]:
+    return _project_payload(_owned_project_or_404(project_id, user))
+
+
+@app.put("/projects/{project_id}/draft")
+def save_project_draft(
+    project_id: str,
+    req: SaveDraftRequest,
+    user: AuthenticatedUser = Depends(require_user),
     _database: None = Depends(require_database_ready),
 ) -> dict[str, Any]:
     intake = canonicalize_intake(req.intake)
-    field_errors = intake_request_errors(intake)
+    project = _project_store().update_draft(
+        project_id=project_id,
+        owner_id=user.id,
+        intake=intake,
+        current_step=req.current_step,
+    )
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found.")
+    return _project_payload(project)
+
+
+@app.post("/projects/{project_id}/generate-plan", status_code=status.HTTP_202_ACCEPTED)
+def generate_project_plan(
+    project_id: str,
+    background_tasks: BackgroundTasks,
+    user: AuthenticatedUser = Depends(require_user),
+    _database: None = Depends(require_database_ready),
+) -> dict[str, Any]:
+    project = _owned_project_or_404(project_id, user)
+    return _queue_plan(
+        intake=project.intake_json,
+        background_tasks=background_tasks,
+        owner_id=user.id,
+        project_id=project.id,
+        status_prefix="/runs",
+    )
+
+
+@app.get("/runs/{run_id}")
+def get_run(
+    run_id: str,
+    user: AuthenticatedUser = Depends(require_user),
+    _database: None = Depends(require_database_ready),
+) -> dict[str, Any]:
+    run = _store().get_owned(run_id, user.id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run not found.")
+    return _run_payload(run, export_prefix=f"/runs/{run.id}/artifacts")
+
+
+@app.get("/runs/{run_id}/artifacts/{filename}")
+def get_artifact(
+    run_id: str,
+    filename: str,
+    user: AuthenticatedUser = Depends(require_user),
+    _database: None = Depends(require_database_ready),
+) -> FileResponse:
+    run = _store().get_owned(run_id, user.id)
+    return _artifact_response(run, run_id, filename)
+
+
+@app.get("/demo/intake", dependencies=[Depends(require_demo_enabled)])
+def get_demo_intake() -> dict[str, Any]:
+    fixture_path = PROJECT_ROOT / "sample_intake" / "fictional_bywater_grounds.json"
+    if not fixture_path.is_file():
+        raise HTTPException(status_code=404, detail="Demo intake fixture not found.")
+    return json.loads(fixture_path.read_text(encoding="utf-8"))
+
+
+@app.post(
+    "/demo/generate-plan",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(require_demo_enabled), Depends(require_database_ready)],
+)
+def generate_demo_plan(
+    req: GeneratePlanRequest,
+    background_tasks: BackgroundTasks,
+) -> dict[str, Any]:
+    return _queue_plan(
+        intake=req.intake,
+        background_tasks=background_tasks,
+        owner_id=None,
+        project_id=None,
+        status_prefix="/demo/runs",
+    )
+
+
+@app.get(
+    "/demo/runs/{run_id}",
+    dependencies=[Depends(require_demo_enabled), Depends(require_database_ready)],
+)
+def get_demo_run(run_id: str) -> dict[str, Any]:
+    run = _store().get_demo(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Demo run not found.")
+    return _run_payload(run, export_prefix=f"/demo/runs/{run.id}/artifacts")
+
+
+@app.get(
+    "/demo/runs/{run_id}/artifacts/{filename}",
+    dependencies=[Depends(require_demo_enabled), Depends(require_database_ready)],
+)
+def get_demo_artifact(run_id: str, filename: str) -> FileResponse:
+    return _artifact_response(_store().get_demo(run_id), run_id, filename)
+
+
+def _queue_plan(
+    *,
+    intake: dict[str, Any],
+    background_tasks: BackgroundTasks,
+    owner_id: str | None,
+    project_id: str | None,
+    status_prefix: str,
+) -> dict[str, Any]:
+    canonical = canonicalize_intake(intake)
+    field_errors = intake_request_errors(canonical)
     if field_errors:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -96,7 +254,7 @@ def generate_plan(
             },
         )
 
-    business_name = intake.get("business_information", {}).get(
+    business_name = canonical.get("business_information", {}).get(
         "business_name", "Unknown Business"
     )
     client_slug = _slugify(business_name)
@@ -106,29 +264,19 @@ def generate_plan(
     _store().create(
         run_id=run_id,
         client_slug=client_slug,
-        intake=intake,
+        intake=canonical,
         artifact_path=str(artifact_directory),
-        provider=provider,
-        model=model,
-        configuration=configuration,
+        owner_id=owner_id,
+        project_id=project_id,
     )
-
     background_tasks.add_task(_execute_run, run_id)
     return {
         "run_id": run_id,
         "client_slug": client_slug,
         "status": "queued",
         "progress": initial_progress(),
-        "status_url": f"/runs/{run_id}",
+        "status_url": f"{status_prefix}/{run_id}",
     }
-
-
-@app.get("/demo-intake")
-def get_demo_intake(_: None = Depends(require_api_key)) -> dict[str, Any]:
-    fixture_path = PROJECT_ROOT / "sample_intake" / "fictional_bywater_grounds.json"
-    if not fixture_path.is_file():
-        raise HTTPException(status_code=404, detail="Demo intake fixture not found.")
-    return json.loads(fixture_path.read_text(encoding="utf-8"))
 
 
 def _execute_run(run_id: str) -> None:
@@ -184,16 +332,7 @@ def _execution_details(result, message: str) -> str:
     )
 
 
-@app.get("/runs/{run_id}")
-def get_run(
-    run_id: str,
-    _: None = Depends(require_api_key),
-    _database: None = Depends(require_database_ready),
-) -> dict[str, Any]:
-    store = _store()
-    run = store.get(run_id)
-    if run is None:
-        raise HTTPException(status_code=404, detail="Run not found.")
+def _run_payload(run, *, export_prefix: str) -> dict[str, Any]:
     return {
         "run_id": run.id,
         "client_slug": run.client_slug,
@@ -206,51 +345,30 @@ def get_run(
         "error": (
             {"code": run.error_code, "message": run.error_message} if run.error_code else None
         ),
-        "result": _public_result(run, store.artifacts(run_id)),
-        "events": store.events(run_id),
+        "result": _public_result(run.result_json, export_prefix=export_prefix),
+        "events": _store().events(run.id),
     }
 
 
-def _public_result(run, artifacts: list) -> dict | None:
-    result = run.output_summary_json
+def _public_result(result: dict | None, *, export_prefix: str) -> dict | None:
     if result is None:
         return None
-    payload = dict(result)
-    by_type = {artifact.artifact_type: artifact for artifact in artifacts}
-    draft = by_type.get("draft")
-    payload["draft_markdown"] = result.get("draft_markdown", "")
-    if draft is not None and draft.storage_provider == "filesystem":
-        path = _artifact_store().resolve_storage_key(draft.storage_key)
-        payload["draft_markdown"] = path.read_text(encoding="utf-8") if path else ""
-    authorizer = DownloadAuthorizer()
+    payload = {
+        key: value for key, value in result.items() if key not in {"artifact_files", "draft_file"}
+    }
+    payload["draft_markdown"] = (
+        _artifact_store().read_text(result.get("run_id", ""), result.get("draft_file"))
+        if "draft_file" in result
+        else result.get("draft_markdown", "")
+    )
     payload["exports"] = {
-        kind: authorizer.url(run.id, artifact.storage_key.split("/", 1)[-1])
-        for kind in ("docx", "pdf")
-        if (artifact := by_type.get(kind)) is not None
+        kind: f"{export_prefix}/{filename}" if filename else None
+        for kind, filename in result.get("artifact_files", {}).items()
     }
     return payload
 
 
-@app.get("/runs/{run_id}/artifacts/{filename}")
-def get_artifact(
-    run_id: str,
-    filename: str,
-    expires: int | None = Query(default=None),
-    token: str | None = Query(default=None),
-    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
-    _database: None = Depends(require_database_ready),
-) -> FileResponse:
-    api_key = os.getenv("BUSINESS_PLAN_API_KEY")
-    signed = DownloadAuthorizer(api_key=api_key).authorized(run_id, filename, expires, token)
-    header_authorized = bool(
-        api_key and x_api_key and secrets.compare_digest(x_api_key, api_key)
-    )
-    if api_key and not header_authorized and not signed:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"code": "unauthorized", "message": "Artifact authorization is required."},
-        )
-    run = _store().get(run_id)
+def _artifact_response(run, run_id: str, filename: str) -> FileResponse:
     if run is None:
         raise HTTPException(status_code=404, detail="Artifact not found.")
     artifact = _store().artifact_for_filename(run_id, filename)
@@ -259,7 +377,7 @@ def get_artifact(
     path = _artifact_store().resolve_storage_key(artifact.storage_key)
     if path is None:
         raise HTTPException(status_code=404, detail="Artifact not found.")
-    return FileResponse(path)
+    return FileResponse(path, filename=filename)
 
 
 @app.get("/healthz")

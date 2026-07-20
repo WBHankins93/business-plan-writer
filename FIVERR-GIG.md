@@ -1,83 +1,160 @@
-# Business Plan Writer — Fiverr Gig (to completion) + Direct Channel
-**Status:** Ready to publish once pricing confirmed · **Created:** 2026-07-10
-**Anchor:** real-world quote of $1,200 for questionnaire + 30-page plan, with one delivered engagement as proof.
+# Business Plan Writer — final Fiverr launch specification
 
----
+**Status:** Copy finalized; image and legal-identity blockers remain
 
-## Channel Strategy (two lanes, one product)
-- **Fiverr:** storefront that catches search demand. List at the prices below; accept that zero-review sellers start slow. Fiverr fee: 20%.
-- **Direct (starts NOW):** $1,200+ full engagements via LinkedIn, NOLA business network, Sproutflow orbit. Credibility substitutes for reviews; no platform fee. The questionnaire IS the sales tool — "fill this out, I'll show you what a real plan looks like."
+**Last revised:** 2026-07-19
 
-## Pricing (draft — Ben to confirm)
-Positioning between "AI-mill $50 gigs" and "$2,500 consultancy plans." Validated $1,200 engagement sits between Standard and Premium.
+**Full strategy:** [`docs/launch-playbook.md`](docs/launch-playbook.md)
 
-| | **Basic — Lean Plan** | **Standard — Investor-Ready** | **Premium — Funding Package** |
-|---|---|---|---|
-| **Price** | $350 | $750 | $1,450 |
-| Pages | 10–15 | 25–30 | 25–30 |
-| Market research | Summary | Full + competitive landscape | Full + competitive landscape |
-| Financials | Basic projections | 3-year projections | 3-year + editable xlsx model |
-| Pitch deck | — | — | 10–12 slides |
-| Strategy call | — | — | 30 min |
-| Delivery | 4 days | 7 days | 10 days |
-| Revisions | 1 | 2 | 3 |
+## Positioning
 
-**Gig extras:** 72h rush +$150 (Basic/Standard only) · extra revision +$75 · pitch deck add-on for Standard +$400
+Business Plan Writer is a professional service delivered by Ben Hankins and supported by an internal software workflow. It is not marketed as an autonomous AI generator.
 
-## Gig Title (pick one)
-1. "I will write an investor-ready business plan with market research and financials" ← recommended (highest-intent keywords)
-2. "I will write a bank and investor ready business plan with 3 year financials"
-3. "I will create a professional business plan for funding, SBA, or investors"
+**Target:** owners of operating US local service businesses preparing to request SBA-backed or conventional small-business financing for expansion.
 
-**Category:** Business → Business Plans · **Tags:** business plan, investor ready, market research, financial projections, SBA loan
+**Offer:** one Funding-Focused Business Plan Service at $750, delivered seven calendar days after a complete intake is accepted, with two consolidated revision rounds.
 
-## Gig Description (draft copy)
-> **A business plan that survives contact with a lender.**
+## Listing
+
+**Title**
+
+> I will write your SBA loan business plan with financial projections
+
+**Category**
+
+> Business → Business Plans
+
+Confirm the category before publication. Fiverr warns that the category cannot be changed after a gig is published.
+
+**Tags**
+
+- SBA business plan
+- loan business plan
+- financial projections
+- funding plan
+- business plan writer
+
+**Package mode:** single package
+
+**Package name:** Funding-Focused Plan
+
+**Price:** $750
+
+**Delivery:** 7 days after complete requirements
+
+**Revisions:** 2
+
+**Package short description**
+
+> Custom funding-focused plan, projection summary, human review, DOCX + PDF, and 2 revision rounds.
+
+## Description
+
+> **Turn what you know about your business into a plan prepared for lender review.**
 >
-> I'm a solutions engineer and business builder who has delivered investor-grade plans for real companies — most recently a 30-page plan for a licensed healthcare practice that went straight into use. My last direct engagement for this exact service was quoted at $1,200. On Fiverr, you get the same process at package pricing.
+> I help owners of local service businesses organize their funding request, operations, customer strategy, and financial assumptions into a professional business plan.
 >
-> **How it works:**
-> 1. You complete my structured intake questionnaire (built from dozens of lender/investor requirements — it's how the quality happens)
-> 2. I research your market, competitors, and financial benchmarks
-> 3. You receive a professionally formatted plan (DOCX + PDF) built for your specific audience: bank, investor, grant committee, or internal roadmap
+> **You receive:**
+> - A custom plan shaped around your business and financing purpose
+> - Executive summary, company, market, sales, operations, management, funding, risk, and financial sections
+> - A 3-year projection summary based on the facts and assumptions you provide
+> - Clearly identified gaps and assumptions
+> - Editable DOCX + shareable PDF
+> - Personal review by me and 2 revision rounds
 >
-> **What makes this different:** most gigs template-fill. My process starts with a tiered intake that flags every weak spot in your concept *before* writing starts — thin answers get follow-up questions, not filler paragraphs. You'll know exactly where your plan is strong and where it needs your attention.
+> **Process:** complete my structured intake, answer any follow-up questions, then receive your first delivery within 7 days after the intake is accepted as complete.
 >
-> Every plan is personally researched, written, and reviewed by me. No handoffs, no mills.
+> This is a professional service supported by software—not an instant generator. I review and edit every plan. Independent market research, custom spreadsheets, legal/accounting advice, and loan approval are not included. Send me your goal, lender, requested amount, and deadline before ordering so I can confirm fit.
 
-*(Positioning rule: the AI pipeline is margin, not marketing. Never lead with it; if asked, "I use modern drafting tools; every word is reviewed and rewritten by me" — true and sufficient.)*
+## Buyer requirements
 
-## Buyer Requirements Form (maps 1:1 to intake schema — Tier 1 + key Tier 2 fields)
-1. Business name + owner name
-2. Legal structure (LLC, sole prop, S-corp…) and industry
-3. Business stage (idea / startup / established / expanding)
-4. What's this plan FOR? (bank loan, investor, grant, internal) + funding amount sought
-5. Location of operations
-6. Describe your product/service in a few sentences
-7. Who is your customer, and how will you reach them?
-8. What do you already have? (revenue, team, projections, prior materials — attach anything)
+1. What financing are you pursuing, from which lender if known, for approximately how much, and by what date?
+2. Provide the business name, legal structure, location, industry, operating stage, and year started.
+3. Describe the services, pricing, delivery model, current capacity, and the customers you serve.
+4. Explain exactly how the financing will be used, with amounts when available.
+5. Describe the owner and management team's relevant experience.
+6. List known competitors, alternatives, differentiators, and customer-acquisition channels.
+7. If operating, attach or summarize up to three years of sales, major expenses, payroll, debts, and cash-flow information.
+8. Provide the assumptions behind the next three years: customers or jobs, prices, revenue, cost of sales, payroll, overhead, capital purchases, and debt payments.
+9. Attach any lender checklist, prior plan, pitch material, quotes, licenses, leases, or other source material that should be considered.
+10. Confirm that the delivery clock starts after the intake is accepted as complete and that missing information may require an extension.
 
-*(Full Tier 2/3 follow-ups happen post-order via the real questionnaire — exactly how the pipeline's thin-answer detection is designed to work.)*
+## Included scope
 
-## FAQ (draft)
-- **Do you use templates?** No. The intake questionnaire drives original research and writing for your specific business and audience.
-- **Can you do SBA-format plans?** Yes — tell me the lender's requirements in the intake.
-- **What do you need from me?** 20–30 minutes on the questionnaire. Thin answers get follow-up questions — that's the process working.
-- **Revisions?** Included per package; scope covers refinement of delivered sections, not a new business concept.
-- **Industries?** Generalist with strong coverage of services, healthcare-adjacent, food & beverage, e-commerce, and tech.
+- structured intake and one follow-up-question round;
+- 20-minute kickoff or clarification call when needed;
+- funding-focused plan sections listed in the description;
+- three-year projection summary based on customer inputs;
+- assumption and information-gap labeling;
+- human editorial and consistency review;
+- DOCX and PDF; and
+- two consolidated revision rounds.
 
-## Gallery Assets Needed
-1. Cover image: "Investor-Ready Business Plans" + 3-step process graphic (questionnaire → research → plan)
-2. Sample pages (2–3, blurred detail) from an **anonymized or fictional** plan — ⚠️ current demo output names the real client; get their OK or build the fictional NOLA coffee shop sample before publishing
-3. The tier comparison table as an image
-4. Optional but high-converting: 60–90s intro video
+## Excluded scope
 
-## Pre-Publish Checklist
-- [ ] Confirm pricing ladder
-- [ ] Anonymized/fictional sample plan generated for gallery
-- [ ] Fiverr seller profile: personal (Ben), professional photo, SE background in bio; gig carries BPW identity; Sproutflow invisible
-- [ ] Requirements form entered
-- [ ] Direct-channel one-pager: reuse gig description + $1,200 anchor for LinkedIn/DM outreach (separate doc if needed)
+- independent or primary market research;
+- a guarantee that every statement has an external citation;
+- lender approval or endorsement;
+- custom spreadsheet model, pitch deck, grant application, valuation, or legal/accounting advice;
+- reconstruction of missing historical records; and
+- a new business concept, audience, or funding scenario during revisions.
 
-## First-5-Orders Playbook
-Over-deliver deliberately (small unasked extras: exec summary one-pager, formatting polish). Ask every satisfied buyer for a review explicitly. After 5 reviews: evaluate raising Basic to $450 and Standard to $850. Track questions buyers ask pre-order — each becomes an FAQ entry.
+## Delivery and revisions
+
+Delivery begins only after the intake is accepted as complete. Missing information is requested before acceptance or handled with a documented Fiverr extension.
+
+A revision round is one consolidated list submitted within seven calendar days of delivery. Revisions refine the agreed business, financing purpose, and supplied data. A new concept, financing audience, material data set, or custom analysis is a new scope.
+
+Fit is confirmed before the intake is accepted. If a scope mismatch is identified before acceptance, cancel and refund the order. If Business Plan Writer cannot deliver the agreed scope, provide a full refund. After the first complete draft is delivered, a change of mind, business-direction change, or financing denial is not refundable; the included revisions cover in-scope corrections. Fiverr's controlling cancellation and dispute terms also apply.
+
+## FAQ
+
+**Is loan approval guaranteed?**
+
+No. The service prepares and organizes the plan for review. The lender controls its requirements and decision.
+
+**Do you perform market research?**
+
+Independent or primary research is not included. The plan analyzes the market and competition using your source materials, known competitors, and clearly labeled assumptions. Ask for a custom quote if your lender requires a separately sourced study.
+
+**Are the financials accountant-prepared?**
+
+No. The projection summary and narrative are built from the facts and assumptions you provide and are not a CPA opinion, audit, or guarantee.
+
+**Can you follow my lender's format?**
+
+Usually, if you send the requirements before ordering. I will confirm fit first.
+
+**What counts as a revision?**
+
+One consolidated list of refinements to the agreed business, funding purpose, and data. A new concept, audience, or material data set is new scope.
+
+**Do you use AI?**
+
+I use software-assisted drafting and quality checks inside my workflow. I personally review, edit, and deliver every plan and remain accountable for the service.
+
+**What is the cancellation and refund policy?**
+
+I confirm fit before accepting the work. If I identify a scope mismatch before accepting the intake, the order should be canceled and refunded. If I cannot deliver the agreed scope, I provide a full refund. After the first complete draft is delivered, a change of mind, business-direction change, or financing denial is not refundable; the included revisions cover in-scope corrections. Fiverr's cancellation and dispute terms also apply.
+
+## Pre-publication blockers
+
+- [ ] Confirm the Fiverr category and fields on desktop.
+- [ ] Replace the three-tier pricing image with the single $750 offer.
+- [ ] Remove “real research,” “real numbers,” “personally researched,” and similar claims from every image.
+- [ ] Remove the healthcare-practice reference unless the client has granted written permission for this exact public use.
+- [ ] Replace “investor-ready” and unconditional “lender-ready” claims with **funding-focused** or **prepared for lender review**.
+- [ ] Create gallery pages from `sample_intake/fictional_bywater_grounds.json`; label them **Fictional sample** and inspect them for unsupported facts.
+- [ ] Add Ben's current professional headshot and seller bio.
+- [ ] Preview spelling, image crops, mobile readability, scope, price, delivery, revisions, and requirements.
+
+## First-order operating checklist
+
+- [ ] Qualify financing purpose, amount, lender, deadline, source data, and exclusions before purchase.
+- [ ] Accept the intake and delivery date in writing.
+- [ ] Separate customer facts, estimates, unknowns, and assumptions before drafting.
+- [ ] Run human QA on names, numbers, arithmetic, consistency, scope, unsupported claims, formatting, and privacy.
+- [ ] Deliver DOCX, PDF, assumption/gap note, and consolidated revision instructions.
+- [ ] Record channel fees, model/tool cost, owner hours, turnaround, revisions, usefulness, review, and referral.
+- [ ] Ask for private feedback before an honest public review.
+- [ ] Ask separately for permission before using any testimonial, excerpt, identity, or plan material.

@@ -9,12 +9,12 @@ from unittest.mock import patch
 from fastapi import BackgroundTasks, HTTPException
 
 from intake.schema import SCHEMA
-from web_api.app import GeneratePlanRequest, generate_plan, get_demo_intake, get_run
+from web_api.app import _queue_plan, _run_payload, get_demo_intake
 
 
 ROOT = Path(__file__).resolve().parents[1]
 DEMO_INTAKE = ROOT / "sample_intake" / "fictional_bywater_grounds.json"
-WEB_PAGE = ROOT / "web" / "app" / "page.tsx"
+WEB_PAGE = ROOT / "web" / "app" / "intake" / "page.tsx"
 
 
 class FakeRunStore:
@@ -23,19 +23,13 @@ class FakeRunStore:
         self.audit_events = []
 
     def create(
-        self,
-        *,
-        run_id,
-        client_slug,
-        intake,
-        artifact_path,
-        provider,
-        model,
-        configuration,
+        self, *, run_id, client_slug, intake, artifact_path, owner_id=None, project_id=None
     ) -> None:
         now = datetime(2026, 7, 19, 12, 0, 0)
         self.run = SimpleNamespace(
             id=run_id,
+            owner_id=owner_id,
+            project_id=project_id,
             client_slug=client_slug,
             status="queued",
             input_snapshot_json=intake,
@@ -82,13 +76,32 @@ class WebIntakeContractTests(unittest.TestCase):
 
         self.assertEqual(mapped_fields, schema_fields)
 
+    def test_web_autosave_has_visible_retry_and_no_shared_api_key(self) -> None:
+        source = WEB_PAGE.read_text(encoding="utf-8")
+        self.assertIn('method: "PUT"', source)
+        self.assertIn("Retry save", source)
+        self.assertIn("Changes are still on this page", source)
+        self.assertNotIn("NEXT_PUBLIC_API_KEY", source)
+
+    def test_private_page_guard_validates_claims(self) -> None:
+        source = WEB_AUTH_MIDDLEWARE.read_text(encoding="utf-8")
+        self.assertIn('const PRIVATE_PATHS = ["/projects"]', source)
+        self.assertIn("supabase.auth.getClaims()", source)
+        self.assertNotIn("auth.getSession()", source)
+
     def test_user_entered_business_name_is_preserved_and_slugged(self) -> None:
         intake = json.loads(json.dumps(self.demo))
         intake["business_information"]["business_name"] = "Lena's Cakes & Co."
         store = FakeRunStore()
 
         with patch("web_api.app._store", return_value=store):
-            response = generate_plan(GeneratePlanRequest(intake=intake), BackgroundTasks())
+            response = _queue_plan(
+                intake=intake,
+                background_tasks=BackgroundTasks(),
+                owner_id="user-a",
+                project_id="project-a",
+                status_prefix="/runs",
+            )
 
         self.assertEqual(response["client_slug"], "lena-s-cakes-co")
         self.assertEqual(store.run.input_snapshot_json["business_information"]["business_name"], "Lena's Cakes & Co.")
@@ -104,9 +117,12 @@ class WebIntakeContractTests(unittest.TestCase):
 
     def test_validation_errors_prevent_incomplete_request_from_queueing(self) -> None:
         with self.assertRaises(HTTPException) as caught:
-            generate_plan(
-                GeneratePlanRequest(intake={"business_information": {"business_name": "Acme"}}),
-                BackgroundTasks(),
+            _queue_plan(
+                intake={"business_information": {"business_name": "Acme"}},
+                background_tasks=BackgroundTasks(),
+                owner_id="user-a",
+                project_id="project-a",
+                status_prefix="/runs",
             )
 
         self.assertEqual(caught.exception.status_code, 422)
@@ -118,7 +134,13 @@ class WebIntakeContractTests(unittest.TestCase):
         store = FakeRunStore()
         background = BackgroundTasks()
         with patch("web_api.app._store", return_value=store):
-            queued = generate_plan(GeneratePlanRequest(intake=self.demo), background)
+            queued = _queue_plan(
+                intake=self.demo,
+                background_tasks=background,
+                owner_id="user-a",
+                project_id="project-a",
+                status_prefix="/runs",
+            )
 
             self.assertEqual(queued["status"], "queued")
             self.assertEqual(len(queued["progress"]), 5)
@@ -137,7 +159,7 @@ class WebIntakeContractTests(unittest.TestCase):
             store.run.created_at = datetime(2026, 7, 19, 12, 0, 0)
             store.run.updated_at = datetime(2026, 7, 19, 12, 1, 0)
 
-            polled = get_run(queued["run_id"])
+            polled = _run_payload(store.run, export_prefix=f"/runs/{queued['run_id']}/artifacts")
 
         self.assertEqual(polled["status"], "succeeded")
         self.assertEqual(polled["result"]["draft_markdown"], "# Bywater Grounds")

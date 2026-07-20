@@ -115,11 +115,11 @@ class Run(Base):
         ),
     )
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_string)
-    project_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    owner_id: Mapped[str | None] = mapped_column(String(128), index=True, nullable=True)
+    project_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("intake_projects.id", ondelete="SET NULL"), index=True, nullable=True
     )
-    # Presentation metadata only. It is never an ownership or uniqueness key.
     client_slug: Mapped[str] = mapped_column(String(120), index=True)
     status: Mapped[str] = mapped_column(String(24), index=True)
     input_snapshot_json: Mapped[dict] = mapped_column(JSON)
@@ -147,6 +147,20 @@ class Run(Base):
     )
     revisions: Mapped[list[Revision]] = relationship(
         back_populates="run", cascade="all, delete-orphan"
+    )
+
+
+class IntakeProject(Base):
+    __tablename__ = "intake_projects"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    owner_id: Mapped[str] = mapped_column(String(128), index=True)
+    title: Mapped[str] = mapped_column(String(160), default="Untitled business")
+    intake_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    current_step: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=utc_now_naive, onupdate=utc_now_naive
     )
 
 

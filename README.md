@@ -154,7 +154,6 @@ PIPELINE_TIMEOUT_SECONDS=900
 
 # Run-scoped API artifacts and signed browser-download lifetime
 ARTIFACT_ROOT=./output/runs
-DOWNLOAD_TOKEN_TTL_SECONDS=900
 
 # Optional cost estimation when providers return token usage
 LLM_INPUT_COST_PER_MILLION_USD=...
@@ -219,10 +218,11 @@ separate boundaries while preserving the CLI pipeline contract.
   separate persistence concerns.
 - Keep generated artifacts on local disk for now and index them via run records.
 
-### Priority 3 — API hardening (auth deferred)
+### Priority 3 — API hardening
 - Keep standardized API error envelopes and health/readiness behavior covered by tests.
 - Tighten request validation progressively while preserving contributor friendliness.
 - Add guardrails for runtime failures and clearer operator diagnostics.
+- Maintain Supabase session validation and server-side ownership checks on every private route.
 
 ### Priority 4 — Open-source contributor experience
 - Keep setup lightweight and documented.
@@ -231,7 +231,6 @@ separate boundaries while preserving the CLI pipeline contract.
 
 ### Priority 5 — SaaS foundation (future)
 - Add billing/multi-tenant controls later.
-- Add auth later (intentionally deferred for current open-source phase).
 - Expand storage strategy from local artifacts to managed object storage when needed.
 
 ---
@@ -260,15 +259,24 @@ DATABASE_URL=postgresql+psycopg://<user>:<password>@<host>/<db>?sslmode=require
   or upgrades tables on startup; `/readyz` returns `503` until the database is at migration head.
 
 ### Current backend endpoints
-- `POST /generate-plan` → queue pipeline execution and return `202` + `run_id`
+
+See [`docs/private-beta-auth.md`](docs/private-beta-auth.md) for the architecture, authentication,
+ownership-enforcement, expired-session, logout, autosave, and resume diagrams.
+
+- `POST /projects` → create an authenticated user's intake project
+- `GET /projects` and `GET /projects/{project_id}` → list/resume owned projects
+- `PUT /projects/{project_id}/draft` → autosave an owned intake draft
+- `POST /projects/{project_id}/generate-plan` → queue the saved draft and return `202` + `run_id`
 - `GET /runs/{run_id}` → fetch persisted run status/result
 - `GET /runs/{run_id}/artifacts/{filename}` → download a run-scoped artifact
+- `/demo/*` → explicit fixture workflow when `ENABLE_DEMO_MODE=true`
 - `GET /healthz` → health check
 - `GET /readyz` → database connection and migration readiness
 
 Each API run writes to `output/runs/{run_id}/`; the business slug is metadata, never a unique
-artifact key. When API-key protection is enabled, polling responses contain short-lived signed
-artifact links so normal browser downloads work without putting the API key in the URL.
+artifact key. Private projects, runs, and downloads require a verified Supabase access token and
+are queried by both resource ID and the token subject. Browser code receives only Supabase's
+publishable key; no service-role credential is used.
 ---
 
 ## Production Readiness Additions
@@ -278,9 +286,9 @@ The project now includes the first production-readiness foundations:
 - Container packaging for the FastAPI backend and Next.js frontend (`Dockerfile.api`, `web/Dockerfile`, `docker-compose.yml`).
 - CI for Python unit tests and frontend production builds (`.github/workflows/ci.yml`).
 - Explicit frontend TypeScript build dependencies and a `typecheck` script.
-- Asynchronous plan generation: `POST /generate-plan` returns `202 Accepted` with a `run_id`, and clients poll `GET /runs/{run_id}`.
+- Asynchronous plan generation: `POST /projects/{project_id}/generate-plan` returns `202 Accepted` with a `run_id`, and clients poll `GET /runs/{run_id}`.
 - Persisted run progress via `progress_json` on run records.
-- API-key enforcement when `BUSINESS_PLAN_API_KEY` is set, plus CORS configuration and explicit Alembic migrations.
+- Supabase registration/login, cookie session refresh, owned autosaved intake projects, bearer-token API authorization, and explicit Alembic migrations.
 
 Before production startup, run:
 

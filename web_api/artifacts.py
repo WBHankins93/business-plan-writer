@@ -1,14 +1,9 @@
 from __future__ import annotations
 
-import hashlib
-import hmac
 import json
-import os
-import time
 from pathlib import Path
-from urllib.parse import quote
 
-from web_api.config import artifact_root, download_token_ttl_seconds
+from web_api.config import artifact_root
 
 
 class ArtifactStore:
@@ -76,32 +71,3 @@ class ArtifactStore:
         except (json.JSONDecodeError, OSError):
             return {}
         return value if isinstance(value, dict) else {}
-
-
-class DownloadAuthorizer:
-    """Create short-lived links so browser downloads can use API-key protection."""
-
-    def __init__(self, api_key: str | None = None, ttl_seconds: int | None = None) -> None:
-        self.api_key = api_key if api_key is not None else os.getenv("BUSINESS_PLAN_API_KEY")
-        self.ttl_seconds = ttl_seconds or download_token_ttl_seconds()
-
-    def url(self, run_id: str, filename: str) -> str:
-        base = f"/runs/{quote(run_id, safe='')}/artifacts/{quote(filename, safe='')}"
-        if not self.api_key:
-            return base
-        expires = int(time.time()) + self.ttl_seconds
-        token = self._signature(run_id, filename, expires)
-        return f"{base}?expires={expires}&token={token}"
-
-    def authorized(self, run_id: str, filename: str, expires: int | None, token: str | None) -> bool:
-        if not self.api_key:
-            return True
-        if expires is None or token is None or expires < int(time.time()):
-            return False
-        expected = self._signature(run_id, filename, expires)
-        return hmac.compare_digest(expected, token)
-
-    def _signature(self, run_id: str, filename: str, expires: int) -> str:
-        assert self.api_key is not None
-        payload = f"{run_id}\n{filename}\n{expires}".encode()
-        return hmac.new(self.api_key.encode(), payload, hashlib.sha256).hexdigest()
