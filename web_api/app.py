@@ -260,6 +260,7 @@ def _queue_plan(
     client_slug = _slugify(business_name)
     run_id = str(uuid.uuid4())
     artifact_directory = _artifact_store().run_directory(run_id)
+    provider, model, configuration = generation_configuration()
     _store().create(
         run_id=run_id,
         client_slug=client_slug,
@@ -290,7 +291,7 @@ def _execute_run(run_id: str) -> None:
     try:
         executor.execute(
             run_id=run_id,
-            intake=run.intake_json,
+            intake=run.input_snapshot_json,
             artifact_directory=artifact_directory,
             on_progress=lambda event: store.record_progress(run_id, event),
         )
@@ -370,10 +371,10 @@ def _public_result(result: dict | None, *, export_prefix: str) -> dict | None:
 def _artifact_response(run, run_id: str, filename: str) -> FileResponse:
     if run is None:
         raise HTTPException(status_code=404, detail="Artifact not found.")
-    downloadable = set((run.result_json or {}).get("artifact_files", {}).values())
-    if filename not in downloadable:
+    artifact = _store().artifact_for_filename(run_id, filename)
+    if artifact is None:
         raise HTTPException(status_code=404, detail="Artifact not found.")
-    path = _artifact_store().resolve_file(run_id, filename)
+    path = _artifact_store().resolve_storage_key(artifact.storage_key)
     if path is None:
         raise HTTPException(status_code=404, detail="Artifact not found.")
     return FileResponse(path, filename=filename)
