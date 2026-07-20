@@ -7,7 +7,7 @@ from typing import Any, Callable
 
 from alembic.config import Config
 from alembic.script import ScriptDirectory
-from sqlalchemy import Engine, create_engine, select, text
+from sqlalchemy import Engine, create_engine, func, select, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from web_api.config import PROJECT_ROOT, database_url
@@ -57,6 +57,10 @@ class ProfileStore:
         from web_api.models import Profile
 
         with self.session_factory() as db:
+            existing = db.get(Profile, profile_id)
+            if existing is not None:
+                db.expunge(existing)
+                return existing
             profile = Profile(id=profile_id)
             db.add(profile)
             db.commit()
@@ -89,6 +93,37 @@ class ProfileStore:
             db.commit()
             return True
 
+    def due_for_purge(self, *, now: datetime | None = None) -> list:
+        from web_api.models import Profile
+
+        cutoff = now or utc_now_naive()
+        with self.session_factory() as db:
+            profiles = db.scalars(
+                select(Profile).where(
+                    Profile.deletion_requested_at.is_not(None),
+                    Profile.purge_after <= cutoff,
+                )
+            ).all()
+            for profile in profiles:
+                db.expunge(profile)
+            return list(profiles)
+
+    def purge(self, profile_id: str) -> bool:
+        """Delete an account tombstone only after its projects have been purged."""
+        from web_api.models import Profile, Project
+
+        with self.session_factory() as db:
+            profile = db.get(Profile, profile_id)
+            if profile is None or profile.deletion_requested_at is None:
+                return False
+            project_count = db.scalar(
+                select(func.count()).select_from(Project).where(Project.owner_id == profile_id)
+            )
+            if project_count:
+                return False
+            db.delete(profile)
+            db.commit()
+            return True
 
 class ProjectStore:
     """Owner-scoped project operations and the soft-delete retention boundary."""
@@ -101,7 +136,8 @@ class ProjectStore:
 
         with self.session_factory() as db:
             if db.get(Profile, owner_id) is None:
-                raise ValueError("Owner profile does not exist")
+                db.add(Profile(id=owner_id))
+                db.flush()
             project = Project(owner_id=owner_id, title=title[:160] or "Untitled business")
             db.add(project)
             db.commit()
@@ -219,6 +255,10 @@ class IntakeDraftStore:
             draft.data_json = data
             draft.current_step = max(0, current_step)
             draft.updated_at = utc_now_naive()
+            business_name = str(
+                data.get("business_information", {}).get("business_name", "")
+            ).strip()
+            project.title = business_name[:160] or "Untitled business"
             project.updated_at = draft.updated_at
             db.commit()
             db.refresh(draft)
@@ -399,6 +439,9 @@ class RunStore:
             db.expunge(run)
             return run
 
+    def get_demo(self, run_id: str):
+        return self.get_owned(run_id, LEGACY_PROFILE_ID)
+
     def transition(self, run_id: str, status: str, message: str) -> None:
         from web_api.models import Run, RunEvent
 
@@ -461,7 +504,7 @@ class RunStore:
             run.output_summary_json = {
                 key: value
                 for key, value in result.items()
-                if key not in {"artifact_files", "draft_file"}
+                if key not in {"artifact_files", "draft_file", "run_id", "client_slug"}
             }
             run.error_code = None
             run.error_message = None
@@ -666,7 +709,6 @@ class RunStore:
             db.refresh(revision)
             db.expunge(revision)
             return revision
-
 
 def initial_progress() -> list[dict[str, Any]]:
     return [

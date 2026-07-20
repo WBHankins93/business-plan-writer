@@ -2,10 +2,10 @@
 
 ## Offer
 
-The release supports one package only: **Funding Ready**, `$497 USD` by default as a
-one-time purchase. It includes one funding-ready plan, DOCX/PDF delivery, two revisions,
-delivery targeted within two business days after complete intake, and optional human QA by
-support request during the beta. `FUNDING_READY_PRICE_CENTS` and
+The release supports one package only: **Funding-Focused Business Plan Service**, `$750 USD`
+by default as a one-time purchase. It includes one funding-focused plan, DOCX/PDF delivery,
+two revisions, delivery within seven calendar days after the intake is accepted as complete,
+and human review during the beta. `FUNDING_READY_PRICE_CENTS` and
 `FUNDING_READY_CURRENCY` are server settings; the browser cannot choose an amount or package.
 
 ## Checkout and confirmation flow
@@ -19,9 +19,8 @@ support request during the beta. `FUNDING_READY_PRICE_CENTS` and
 5. Only a signature-verified `checkout.session.completed` with `payment_status=paid`, the
    expected mode, amount, and currency changes the payment to `paid` and grants one credit.
 
-Use a real authentication middleware that sets `request.state.authenticated_user_id`.
-`TRUST_AUTH_PROXY_HEADERS=true` is a local/test adapter only; a production proxy using it
-must strip user-supplied `X-Authenticated-User-Id` headers.
+Authenticated endpoints verify the Supabase bearer token server-side and derive ownership from
+its subject. Client-provided owner or payment state is never trusted.
 
 ## State machines
 
@@ -89,10 +88,10 @@ Live keys are rejected unless `STRIPE_ALLOW_LIVE_MODE=true`. No Stripe secret be
 
 ## Unresolved financial and legal decisions
 
-- Confirm the `$497 USD` price and whether sales tax must be collected by buyer jurisdiction.
+- Confirm whether sales tax must be collected by buyer jurisdiction for the `$750 USD` offer.
 - Publish the refund window, partial-refund policy, and treatment of already-delivered work.
 - Define the exact boundaries of a revision versus a new business concept.
-- Confirm whether the two-business-day promise pauses for incomplete intake or customer delay.
-- Define when optional human QA is accepted, its service level, and who performs it.
+- Confirm how the seven-calendar-day promise handles customer delays after intake acceptance.
+- Define the human-review checklist, service level, and backup reviewer.
 - Approve checkout terms, privacy language, AI-assistance disclosure, and the disclaimer that
   output is not legal, tax, investment, or lending advice.

@@ -2,8 +2,8 @@ import "./globals.css";
 import type { ReactNode } from "react";
 
 export const metadata = {
-  title: "Business Plan Writer",
-  description: "Web intake and draft review foundation",
+  title: "Funding-focused business plans | Business Plan Writer",
+  description: "Human-reviewed business plans for operating local-service-business owners preparing for SBA-backed or conventional expansion financing.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -13,4 +13,3 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     </html>
   );
 }
-

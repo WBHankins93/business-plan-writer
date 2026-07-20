@@ -23,6 +23,12 @@ depends_on = None
 LEGACY_PROFILE_ID = "00000000-0000-0000-0000-000000000000"
 
 
+def _json_dict(value: object) -> dict:
+    if isinstance(value, str):
+        value = json.loads(value)
+    return dict(value or {})
+
+
 def _owner_setting() -> str:
     return "NULLIF(current_setting('app.current_user_id', true), '')"
 
@@ -100,6 +106,7 @@ def upgrade() -> None:
         sa.Column("deletion_requested_at", sa.DateTime(), nullable=True),
         sa.Column("purge_after", sa.DateTime(), nullable=True),
     )
+    op.create_index("ix_profiles_purge_after", "profiles", ["purge_after"])
     op.create_table(
         "projects",
         sa.Column("id", sa.String(length=36), primary_key=True),
@@ -331,7 +338,7 @@ def upgrade() -> None:
         sa.column("output_summary_json", sa.JSON()),
     )
     for row in existing:
-        result = dict(row["result_json"] or {})
+        result = _json_dict(row["result_json"])
         artifact_specs = []
         if result.get("draft_file"):
             artifact_specs.append(("draft", result["draft_file"], "text/markdown"))
@@ -369,7 +376,9 @@ def upgrade() -> None:
                     )
                 )
         summary = {
-            key: value for key, value in result.items() if key not in {"artifact_files", "draft_file"}
+            key: value
+            for key, value in result.items()
+            if key not in {"artifact_files", "draft_file", "run_id", "client_slug"}
         }
         connection.execute(
             new_runs.update()
@@ -422,9 +431,7 @@ def downgrade() -> None:
     for artifact in artifact_rows:
         by_run.setdefault(artifact["run_id"], []).append(dict(artifact))
     for row in run_rows:
-        raw_result = row["output_summary_json"] or {}
-        parsed_result = json.loads(raw_result) if isinstance(raw_result, str) else raw_result
-        result = dict(parsed_result or {})
+        result = _json_dict(row["output_summary_json"])
         files: dict[str, str] = {}
         for artifact in by_run.get(row["id"], []):
             filename = artifact["storage_key"].split("/", 1)[-1]
@@ -462,4 +469,5 @@ def downgrade() -> None:
     op.drop_index("ix_projects_purge_after", table_name="projects")
     op.drop_index("ix_projects_owner_id", table_name="projects")
     op.drop_table("projects")
+    op.drop_index("ix_profiles_purge_after", table_name="profiles")
     op.drop_table("profiles")

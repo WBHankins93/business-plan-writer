@@ -70,7 +70,7 @@ def generation_configuration() -> tuple[str, str, dict[str, object]]:
 
 
 def funding_ready_price_cents() -> int:
-    raw_value = os.getenv("FUNDING_READY_PRICE_CENTS", "49700")
+    raw_value = os.getenv("FUNDING_READY_PRICE_CENTS", "75000")
     try:
         value = int(raw_value)
     except ValueError as exc:

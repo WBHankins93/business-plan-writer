@@ -38,7 +38,7 @@ class Profile(Base):
         DateTime, default=utc_now_naive, onupdate=utc_now_naive
     )
     deletion_requested_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    purge_after: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    purge_after: Mapped[datetime | None] = mapped_column(DateTime, index=True, nullable=True)
 
     projects: Mapped[list[Project]] = relationship(
         back_populates="owner", cascade="all, delete-orphan"
@@ -67,7 +67,7 @@ class Project(Base):
         DateTime, default=utc_now_naive, onupdate=utc_now_naive
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    purge_after: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    purge_after: Mapped[datetime | None] = mapped_column(DateTime, index=True, nullable=True)
 
     owner: Mapped[Profile] = relationship(back_populates="projects")
     intake_draft: Mapped[IntakeDraft | None] = relationship(

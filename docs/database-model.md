@@ -52,6 +52,8 @@ The owner-scoped store methods are therefore the security boundary in SQLite tes
 - Hard-deleting a project cascades through its draft, runs, audit events, artifact metadata, and
   revisions. Audit history is therefore immutable during the retention window and removed with the
   sensitive project at final purge.
+- An account profile can be hard-deleted only after all of its project artifacts and project rows
+  have been purged; the store refuses to bypass that ordering.
 - A purge is not considered complete until external objects are gone. Failed object deletion must
   leave the database tombstone in place for retry.
 - Database backups can retain deleted rows beyond the live-database purge. Production backup

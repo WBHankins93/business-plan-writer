@@ -39,10 +39,10 @@ class PackageDefinition:
 
 FUNDING_READY = PackageDefinition(
     code="funding_ready_v1",
-    name="Funding Ready business plan",
-    description="One funding-ready business plan from one completed intake.",
+    name="Funding-Focused Business Plan Service",
+    description="One funding-focused business plan from one completed intake.",
     revision_limit=2,
-    turnaround="Delivery targeted within two business days after a complete intake.",
-    deliverables=("Funding-ready business plan", "DOCX export", "PDF export"),
-    human_qa="Optional by support request during the public beta.",
+    turnaround="Delivery within seven calendar days after the intake is accepted as complete.",
+    deliverables=("Funding-focused business plan", "DOCX export", "PDF export"),
+    human_qa="Included during the public beta.",
 )

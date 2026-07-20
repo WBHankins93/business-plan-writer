@@ -230,6 +230,27 @@ class RetentionTests(PersistenceHarness):
             self.assertEqual(db.scalar(select(func.count()).select_from(Artifact)), 0)
             self.assertEqual(db.scalar(select(func.count()).select_from(Revision)), 0)
 
+    def test_account_purge_waits_for_project_artifact_cleanup(self):
+        owner_id = "11111111-1111-1111-1111-111111111111"
+        project, _draft = self.owned_project(owner_id)
+        deletion_time = datetime(2026, 7, 19, 12, 0, 0)
+        self.assertTrue(
+            self.profiles.schedule_deletion(owner_id, retention_days=30, now=deletion_time)
+        )
+        self.assertEqual(
+            self.profiles.due_for_purge(now=deletion_time + timedelta(days=29)), []
+        )
+        self.assertEqual(
+            [profile.id for profile in self.profiles.due_for_purge(
+                now=deletion_time + timedelta(days=30)
+            )],
+            [owner_id],
+        )
+        self.assertFalse(self.profiles.purge(owner_id))
+        self.assertTrue(self.projects.purge(project.id))
+        self.assertTrue(self.profiles.purge(owner_id))
+        with self.session_factory() as db:
+            self.assertIsNone(db.get(Profile, owner_id))
 
 class MigrationPolicyTests(unittest.TestCase):
     def test_rls_covers_every_owned_table_and_keeps_events_append_only(self):
