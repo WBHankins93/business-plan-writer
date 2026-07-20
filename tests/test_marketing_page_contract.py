@@ -4,6 +4,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MARKETING_PAGE = ROOT / "web" / "app" / "page.tsx"
+INTAKE_PAGE = ROOT / "web" / "app" / "intake" / "page.tsx"
 ANALYTICS_LINK = ROOT / "web" / "app" / "components" / "AnalyticsLink.tsx"
 SAMPLE_SOURCE = ROOT / "web" / "public" / "samples" / "bywater-grounds-sample-plan.md"
 
@@ -21,12 +22,19 @@ class MarketingPageContractTests(unittest.TestCase):
         self.assertIn("seven calendar days", source)
         self.assertIn("does not guarantee financing", source)
 
-    def test_account_start_url_defaults_to_intake_without_adding_auth(self) -> None:
+    def test_account_start_url_defaults_to_demo_without_adding_auth(self) -> None:
         source = MARKETING_PAGE.read_text(encoding="utf-8")
 
-        self.assertIn('NEXT_PUBLIC_ACCOUNT_START_URL || "/intake"', source)
+        self.assertIn('NEXT_PUBLIC_ACCOUNT_START_URL || "/demo"', source)
+        self.assertIn('cta_name: "start_demo_intake"', source)
         self.assertNotIn("signIn(", source)
         self.assertNotIn("checkout", source.lower())
+
+    def test_legacy_intake_url_redirects_to_demo(self) -> None:
+        source = INTAKE_PAGE.read_text(encoding="utf-8")
+
+        self.assertIn('NEXT_PUBLIC_ACCOUNT_START_URL || "/demo"', source)
+        self.assertIn("redirect(accountStartUrl)", source)
 
     def test_required_analytics_events_are_emitted(self) -> None:
         page_source = MARKETING_PAGE.read_text(encoding="utf-8")
