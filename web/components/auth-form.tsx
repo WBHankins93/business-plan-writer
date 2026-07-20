@@ -57,9 +57,9 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         </form>
         <p className="authSwitch">
           {isLogin ? "Need an account?" : "Already have an account?"}{" "}
-          <Link href={isLogin ? "/register" : "/login"}>{isLogin ? "Register" : "Sign in"}</Link>
+          <Link href={isLogin ? "/register" : "/login"}>{isLogin ? "Create account" : "Sign in"}</Link>
         </p>
-        <Link className="demoLink" href="/demo">Use the fictional demo instead</Link>
+        <Link className="demoLink" href="/demo">Explore the fictional demo instead</Link>
       </section>
     </main>
   );

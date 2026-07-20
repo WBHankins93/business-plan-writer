@@ -4,6 +4,7 @@ import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const baseUrl = process.env.ACCESSIBILITY_BASE_URL || "http://127.0.0.1:3100";
+const expectedAccountStartPath = process.env.EXPECTED_ACCOUNT_START_PATH || "/demo";
 const screenshotDirectory = resolve(process.cwd(), "../tmp/site-review");
 
 const assert = (condition, message) => {
@@ -49,7 +50,10 @@ const checkAnalytics = async (page) => {
   });
 
   const accountLink = page.locator(".heroActions .primaryAction");
-  assert((await accountLink.getAttribute("href")) === "/intake", "Primary CTA does not lead to the intake route.");
+  assert(
+    (await accountLink.getAttribute("href")) === expectedAccountStartPath,
+    `Primary CTA does not lead to ${expectedAccountStartPath}.`,
+  );
   await accountLink.click();
   const accountEvents = await page.evaluate(() => window.dataLayer?.map((item) => item.event));
   assert(accountEvents?.includes("cta_click"), "Primary CTA did not emit cta_click.");

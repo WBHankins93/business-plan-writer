@@ -71,7 +71,7 @@ const INTAKE_STEPS: IntakeStep[] = [
       { section: "business_information", name: "owner_name", label: "Primary owner", prompt: "Who is the primary owner or founder?", tier: 1, placeholder: "Jordan Lee" },
       { section: "business_information", name: "ownership_structure", label: "Ownership structure", prompt: "How is the business legally organized?", tier: 1, placeholder: "LLC, sole proprietorship, S corporation…" },
       { section: "business_information", name: "industry", label: "Industry", prompt: "What industry or sector best describes the business?", tier: 1, placeholder: "Eldercare planning and family advisory services" },
-      { section: "business_information", name: "business_stage", label: "Current stage", prompt: "Where is the business today?", tier: 2, placeholder: "Pre-launch, operating, expanding…" },
+      { section: "business_information", name: "business_stage", label: "Current stage", prompt: "Where is the business today?", tier: 2, placeholder: "Operating, expanding, opening a new location…" },
       { section: "business_information", name: "funding_purpose", label: "Purpose of this plan", prompt: "What decision or funding request should this plan support?", tier: 2, multiline: true },
       { section: "business_information", name: "funding_amount", label: "Funding amount", prompt: "How much funding is being sought, if any?", tier: 2, placeholder: "$85,000" },
       { section: "business_information", name: "location", label: "Business location", prompt: "Where will the business operate and serve customers?", tier: 2, placeholder: "Chicago, Illinois and surrounding suburbs" },
@@ -416,7 +416,7 @@ export function IntakeWorkspace({ projectId, demoMode = false }: { projectId?: s
 
     setRunState("queueing");
     setError("");
-    setNotice("Sending the intake to the five-agent workflow…");
+    setNotice("Starting the plan checks and first draft…");
     setSteps(statusSteps("queued"));
     setDraft("");
 
@@ -543,11 +543,11 @@ export function IntakeWorkspace({ projectId, demoMode = false }: { projectId?: s
       {saveError && <div className="saveError" role="alert">{saveError}</div>}
       <header className="hero">
         <div>
-          <p className="eyebrow">Structured intake · Five-agent review</p>
+          <p className="eyebrow">Structured intake · Human-reviewed delivery</p>
           <h1>Build the case for your business.</h1>
-          <p className="heroCopy">Answer one focused set of questions at a time. The workflow turns your evidence and estimates into a plan you can review, refine, and export.</p>
+          <p className="heroCopy">Answer one focused set of questions at a time. Your evidence and estimates become a plan you can review, refine, and export.</p>
         </div>
-        {demoMode && <button className="demoButton" type="button" onClick={loadDemo} disabled={isBusy}>Load fictional demo</button>}
+        {demoMode && <button className="demoButton" type="button" onClick={loadDemo} disabled={isBusy}>Load example answers</button>}
       </header>
 
       <nav className="intakeNav" aria-label="Intake steps">
@@ -577,8 +577,8 @@ export function IntakeWorkspace({ projectId, demoMode = false }: { projectId?: s
               <div className="reviewStep">
                 <div className="sectionIntro">
                   <p>Step 5 of 5</p>
-                  <h2 id="step-title">Review and generate</h2>
-                  <span>Required answers are ready. You can return to any section before starting the workflow.</span>
+                  <h2 id="step-title">Review and create your draft</h2>
+                  <span>Your required answers are ready. You can return to any section before creating the draft.</span>
                 </div>
                 <div className="reviewGrid">
                   {INTAKE_STEPS.map((step, index) => {
@@ -592,7 +592,7 @@ export function IntakeWorkspace({ projectId, demoMode = false }: { projectId?: s
                 </div>
                 <div className="generateCallout">
                   <p><strong>{answeredRequired} of {requiredCount}</strong> required answers complete</p>
-                  <p>Generation queues one request, then this page follows the run through validation, market analysis, financial review, drafting, and final critique.</p>
+                  <p>The service checks completeness, market logic, financial consistency, and draft quality before the result appears here.</p>
                 </div>
               </div>
             )}
@@ -602,7 +602,7 @@ export function IntakeWorkspace({ projectId, demoMode = false }: { projectId?: s
               {activeStep < REVIEW_STEP_INDEX ? (
                 <button type="button" onClick={() => moveToStep(activeStep + 1)}>Continue</button>
               ) : (
-                <button type="submit" disabled={isBusy} aria-busy={isBusy}>{runState === "queueing" ? "Queueing…" : runState === "running" ? "Agents working…" : "Generate business plan"}</button>
+                <button type="submit" disabled={isBusy} aria-busy={isBusy}>{runState === "queueing" ? "Starting…" : runState === "running" ? "Creating your draft…" : "Create business plan draft"}</button>
               )}
             </div>
           </form>
@@ -610,8 +610,8 @@ export function IntakeWorkspace({ projectId, demoMode = false }: { projectId?: s
 
         <aside className="agentPanel" aria-labelledby="agent-heading">
           <div className="agentHeader">
-            <p className="eyebrow">Live workflow</p>
-            <h2 id="agent-heading">Five-agent desk</h2>
+            <p className="eyebrow">Draft progress</p>
+            <h2 id="agent-heading">Plan quality checks</h2>
           </div>
           <ol className="agentRail" aria-live="polite" aria-busy={isBusy}>
             {progress.map((step) => (
@@ -626,7 +626,7 @@ export function IntakeWorkspace({ projectId, demoMode = false }: { projectId?: s
             <progress max={requiredCount} value={answeredRequired}>{answeredRequired} of {requiredCount}</progress>
           </div>
           {runId && <p className="runId">Run <code>{runId}</code></p>}
-          <p className="finePrint">Generated plans require human review. Follow-up and optional answers improve specificity but do not block the request.</p>
+          <p className="finePrint">This screen shows an AI-assisted draft. Ben reviews and edits accepted customer plans before delivery. Optional answers improve specificity but do not block the draft.</p>
         </aside>
       </div>
 
@@ -635,7 +635,7 @@ export function IntakeWorkspace({ projectId, demoMode = false }: { projectId?: s
           <div className="resultHeader">
             <div>
               <p className="eyebrow">Generated result</p>
-              <h2 id="draft-heading">Draft preview</h2>
+              <h2 id="draft-heading">Draft for your review</h2>
               <p>Completeness {warnings.completeness_score ?? "—"}/100 · Review {critic.approval_status || "pending"}</p>
             </div>
             <div className="exportRow">
