@@ -1030,7 +1030,10 @@ textarea[aria-invalid="true"] {
   overflow: hidden;
   background: var(--m-canvas);
   color: var(--m-ink);
-  font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif;
+  font-family: var(--font-body), "Avenir Next", Avenir, "Segoe UI", sans-serif;
+  font-size: 1.02rem;
+  font-optical-sizing: auto;
+  line-height: 1.5;
 }
 
 .marketingShell * {
@@ -1046,9 +1049,10 @@ textarea[aria-invalid="true"] {
 
 .marketingShell h1,
 .marketingShell h2 {
-  font-family: Rockwell, "Rockwell Nova", "Roboto Slab", Georgia, serif;
-  font-weight: 600;
-  letter-spacing: -0.035em;
+  font-family: var(--font-display), Georgia, serif;
+  font-optical-sizing: auto;
+  font-weight: 560;
+  letter-spacing: -0.03em;
 }
 
 .marketingShell a {
@@ -1107,8 +1111,9 @@ textarea[aria-invalid="true"] {
   border: 1px solid var(--m-pine);
   border-radius: 50%;
   color: var(--m-pine);
-  font-family: Rockwell, "Rockwell Nova", Georgia, serif;
-  font-size: 0.73rem;
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 0.78rem;
+  font-weight: 650;
   letter-spacing: -0.04em;
 }
 
@@ -1116,7 +1121,7 @@ textarea[aria-invalid="true"] {
   display: block;
   margin-top: 2px;
   color: var(--m-ink-soft);
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   font-weight: 600;
   letter-spacing: 0.01em;
 }
@@ -1134,7 +1139,7 @@ textarea[aria-invalid="true"] {
   align-items: center;
   padding: 0 12px;
   color: var(--m-ink-soft);
-  font-size: 0.82rem;
+  font-size: 0.86rem;
   font-weight: 650;
   text-decoration: none;
 }
@@ -1161,9 +1166,9 @@ textarea[aria-invalid="true"] {
 .marketingHero {
   display: grid;
   width: min(1180px, calc(100% - 48px));
-  min-height: 660px;
+  min-height: 650px;
   align-items: center;
-  grid-template-columns: minmax(0, 1.08fr) minmax(380px, 0.72fr);
+  grid-template-columns: minmax(0, 1.05fr) minmax(380px, 0.75fr);
   gap: clamp(50px, 8vw, 116px);
   margin: 0 auto;
   padding: 70px 0 88px;
@@ -1173,27 +1178,28 @@ textarea[aria-invalid="true"] {
 .sectionLabel {
   margin-bottom: 18px;
   color: var(--m-pine);
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.11em;
+  font-family: var(--font-body), "Avenir Next", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 760;
+  letter-spacing: 0.1em;
   line-height: 1.4;
   text-transform: uppercase;
 }
 
 .marketingHero h1 {
-  max-width: 730px;
+  max-width: 700px;
   margin-bottom: 26px;
-  font-size: clamp(3.25rem, 6.5vw, 6.65rem);
-  line-height: 0.96;
+  font-size: clamp(3.1rem, 5.5vw, 5.7rem);
+  line-height: 0.98;
+  text-wrap: balance;
 }
 
 .heroLead {
-  max-width: 650px;
-  margin-bottom: 30px;
+  max-width: 620px;
+  margin-bottom: 28px;
   color: var(--m-ink-soft);
-  font-size: clamp(1.08rem, 1.6vw, 1.34rem);
-  line-height: 1.55;
+  font-size: clamp(1.08rem, 1.45vw, 1.25rem);
+  line-height: 1.62;
 }
 
 .heroActions,
@@ -1243,11 +1249,18 @@ textarea[aria-invalid="true"] {
   color: var(--m-pine);
 }
 
+.heroNote {
+  margin: 14px 0 0;
+  color: var(--m-ink-soft);
+  font-size: 0.79rem;
+  line-height: 1.5;
+}
+
 .offerFacts {
   display: grid;
   max-width: 630px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin: 40px 0 0;
+  margin: 34px 0 0;
   padding: 0;
   list-style: none;
 }
@@ -1269,13 +1282,13 @@ textarea[aria-invalid="true"] {
 
 .offerFacts strong {
   margin-bottom: 3px;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
 }
 
 .offerFacts span {
   color: var(--m-ink-soft);
-  font-size: 0.72rem;
-  line-height: 1.4;
+  font-size: 0.76rem;
+  line-height: 1.45;
 }
 
 .planArtifact {
@@ -1344,7 +1357,7 @@ textarea[aria-invalid="true"] {
 
 .paperPreview h2 {
   margin: 76px 0 12px;
-  font-size: clamp(2.15rem, 4vw, 3.15rem);
+  font-size: clamp(2.2rem, 4vw, 3.25rem);
   line-height: 0.98;
 }
 
@@ -1428,6 +1441,43 @@ textarea[aria-invalid="true"] {
   font-size: 0.61rem;
 }
 
+.trustStrip {
+  display: grid;
+  width: min(1180px, calc(100% - 48px));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0 auto;
+  border-top: 1px solid var(--m-line);
+  border-bottom: 1px solid var(--m-line);
+}
+
+.trustStrip > div {
+  min-height: 118px;
+  border-left: 1px solid var(--m-line);
+  padding: 26px clamp(22px, 3vw, 38px);
+}
+
+.trustStrip > div:first-child {
+  border-left: 0;
+}
+
+.trustStrip strong,
+.trustStrip span {
+  display: block;
+}
+
+.trustStrip strong {
+  margin-bottom: 6px;
+  color: var(--m-pine);
+  font-size: 0.9rem;
+}
+
+.trustStrip span {
+  max-width: 300px;
+  color: var(--m-ink-soft);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
 .fitSection,
 .deliverablesSection,
 .sampleSection,
@@ -1443,7 +1493,6 @@ textarea[aria-invalid="true"] {
   display: grid;
   grid-template-columns: 0.8fr 1.2fr;
   gap: 70px;
-  border-top: 1px solid var(--m-line);
   border-bottom: 1px solid var(--m-line);
   padding: 64px 0;
 }
@@ -1454,8 +1503,9 @@ textarea[aria-invalid="true"] {
 .pricingIntro h2,
 .finalCta h2 {
   margin-bottom: 18px;
-  font-size: clamp(2.3rem, 4.4vw, 4.6rem);
-  line-height: 1.02;
+  font-size: clamp(2.35rem, 4vw, 4.25rem);
+  line-height: 1.03;
+  text-wrap: balance;
 }
 
 .fitColumns {
@@ -1467,16 +1517,45 @@ textarea[aria-invalid="true"] {
 .fitColumns h3 {
   margin-bottom: 10px;
   color: var(--m-pine);
-  font-size: 0.88rem;
+  font-size: 0.95rem;
 }
 
-.fitColumns p,
+.fitList,
 .sectionHeading > p:last-child,
 .sampleCopy > p,
 .pricingIntro > p,
 .finalCta > p {
   color: var(--m-ink-soft);
   line-height: 1.7;
+}
+
+.fitList {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  color: var(--m-ink-soft);
+  font-size: 0.91rem;
+  list-style: none;
+}
+
+.fitList li {
+  position: relative;
+  padding-left: 21px;
+}
+
+.fitList li::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: var(--m-pine);
+  content: "✓";
+  font-weight: 760;
+}
+
+.fitListMuted li::before {
+  color: #89968f;
+  content: "—";
 }
 
 .deliverablesSection,
@@ -1488,6 +1567,17 @@ textarea[aria-invalid="true"] {
 .sectionHeading {
   max-width: 760px;
   margin-bottom: 58px;
+}
+
+.sectionHeadingCentered {
+  margin-right: auto;
+  margin-left: auto;
+  text-align: center;
+}
+
+.sectionHeadingCentered > p:last-child {
+  margin-right: auto;
+  margin-left: auto;
 }
 
 .sectionHeading > p:last-child {
@@ -1504,7 +1594,7 @@ textarea[aria-invalid="true"] {
 }
 
 .deliverablesGrid article {
-  min-height: 330px;
+  min-height: 310px;
   padding: 34px;
   background: #fff;
 }
@@ -1513,8 +1603,11 @@ textarea[aria-invalid="true"] {
   display: inline-block;
   margin-bottom: 74px;
   color: var(--m-pine);
-  font-family: "SFMono-Regular", Consolas, monospace;
+  font-family: var(--font-body), sans-serif;
   font-size: 0.72rem;
+  font-weight: 760;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .deliverablesGrid h3 {
@@ -1526,7 +1619,7 @@ textarea[aria-invalid="true"] {
 
 .deliverablesGrid p {
   color: var(--m-ink-soft);
-  font-size: 0.9rem;
+  font-size: 0.94rem;
   line-height: 1.7;
 }
 
@@ -1545,8 +1638,14 @@ textarea[aria-invalid="true"] {
   margin-bottom: 28px;
 }
 
+.sampleCopy {
+  grid-column: 2;
+}
+
 .samplePages {
   position: relative;
+  grid-row: 1;
+  grid-column: 1;
   min-height: 410px;
 }
 
@@ -1568,7 +1667,7 @@ textarea[aria-invalid="true"] {
 
 .samplePage h3 {
   margin: 55px 0 26px;
-  font-family: Rockwell, "Rockwell Nova", Georgia, serif;
+  font-family: var(--font-display), Georgia, serif;
   font-size: 1.7rem;
 }
 
@@ -1669,6 +1768,7 @@ textarea[aria-invalid="true"] {
 .processList p {
   max-width: 600px;
   color: var(--m-ink-soft);
+  font-size: 0.94rem;
   line-height: 1.65;
 }
 
@@ -1703,7 +1803,7 @@ textarea[aria-invalid="true"] {
 }
 
 .price strong {
-  font-family: Rockwell, "Rockwell Nova", Georgia, serif;
+  font-family: var(--font-display), Georgia, serif;
   font-size: clamp(3.2rem, 6vw, 5.5rem);
   font-weight: 500;
 }
@@ -1739,7 +1839,7 @@ textarea[aria-invalid="true"] {
   border-top: 1px solid #45535b;
   padding: 13px 0 13px 24px;
   color: #e7edeb;
-  font-size: 0.86rem;
+  font-size: 0.9rem;
   line-height: 1.45;
 }
 
@@ -1752,21 +1852,42 @@ textarea[aria-invalid="true"] {
 }
 
 .expectationNote {
-  margin: 30px 0;
+  margin: 22px 0 30px;
+  border: 1px solid #45535b;
   border-left: 3px solid var(--m-gold);
-  padding: 3px 0 3px 17px;
+  padding: 0 17px;
 }
 
-.expectationNote strong {
+.expectationNote summary {
+  min-height: 48px;
+  padding: 14px 4px;
   color: #f1cf87;
-  font-size: 0.8rem;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .expectationNote p {
-  margin: 6px 0 0;
+  margin: 0 0 14px;
   color: #b8c3c7;
-  font-size: 0.77rem;
-  line-height: 1.6;
+  font-size: 0.82rem;
+  line-height: 1.65;
+}
+
+.termsAtGlance {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.termsAtGlance span {
+  border: 1px solid #55646c;
+  border-radius: 99px;
+  padding: 7px 11px;
+  color: #dce5e2;
+  font-size: 0.76rem;
+  font-weight: 650;
 }
 
 .packageAction {
@@ -1788,18 +1909,27 @@ textarea[aria-invalid="true"] {
 
 .trustGrid article {
   border-top: 1px solid var(--m-line);
-  padding: 24px 16px 0 0;
+  padding: 26px 22px 0 0;
 }
 
 .trustGrid h3 {
   margin-bottom: 15px;
-  font-size: 1rem;
+  font-size: 1.06rem;
 }
 
 .trustGrid p {
   color: var(--m-ink-soft);
-  font-size: 0.82rem;
-  line-height: 1.65;
+  font-size: 0.9rem;
+  line-height: 1.68;
+}
+
+.trustHeading {
+  margin-left: auto;
+  text-align: right;
+}
+
+.trustHeading > p:last-child {
+  margin-left: auto;
 }
 
 .finalCta {
@@ -1916,6 +2046,21 @@ textarea[aria-invalid="true"] {
     width: min(100% - 32px, 1180px);
   }
 
+  .trustStrip {
+    width: min(100% - 32px, 1180px);
+    grid-template-columns: 1fr;
+  }
+
+  .trustStrip > div {
+    min-height: 0;
+    border-top: 1px solid var(--m-line);
+    border-left: 0;
+  }
+
+  .trustStrip > div:first-child {
+    border-top: 0;
+  }
+
   .marketingHero {
     min-height: 0;
     grid-template-columns: 1fr;
@@ -1960,6 +2105,19 @@ textarea[aria-invalid="true"] {
     gap: 55px;
   }
 
+  .sampleCopy,
+  .samplePages {
+    grid-column: 1;
+  }
+
+  .sampleCopy {
+    grid-row: 1;
+  }
+
+  .samplePages {
+    grid-row: 2;
+  }
+
   .samplePages {
     width: min(100%, 510px);
     min-height: 400px;
@@ -1968,6 +2126,11 @@ textarea[aria-invalid="true"] {
 
   .processHeading {
     position: static;
+  }
+
+  .trustHeading {
+    margin-left: 0;
+    text-align: left;
   }
 
   .pricingSection {

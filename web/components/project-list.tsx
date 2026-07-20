@@ -71,9 +71,9 @@ export function ProjectList() {
       </header>
       {error && <div className="errorSummary" role="alert">{error} <button type="button" onClick={load}>Retry</button></div>}
       <section className="projectsCard">
-        <div className="projectsHeading"><div><h2>Saved intakes</h2><p>Open a draft to continue where you left off.</p></div><button type="button" onClick={createProject} disabled={creating}>{creating ? "Starting…" : "Start new intake"}</button></div>
-        {loading ? <p className="emptyState">Loading saved projects…</p> : projects.length === 0 ? (
-          <div className="emptyState"><h3>No saved intakes yet</h3><p>Start an intake and your answers will save automatically.</p></div>
+        <div className="projectsHeading"><div><h2>Saved plans</h2><p>Open a plan to continue your intake or review its draft.</p></div><button type="button" onClick={createProject} disabled={creating}>{creating ? "Starting…" : "Start new plan"}</button></div>
+        {loading ? <p className="emptyState">Loading saved plans…</p> : projects.length === 0 ? (
+          <div className="emptyState"><h3>No saved plans yet</h3><p>Start a plan and your intake answers will save automatically.</p></div>
         ) : (
           <ul className="projectGrid">
             {projects.map((project) => (

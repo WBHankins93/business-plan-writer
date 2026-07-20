@@ -30,24 +30,24 @@ const sampleEvents = (location: string, format: "pdf" | "docx"): AnalyticsEvent[
 
 const processSteps = [
   {
-    title: "Tell us what you know",
-    body: "A guided intake turns your experience, offer, funding request, and estimates into usable source material.",
+    title: "Share your starting point",
+    body: "A guided intake captures your operating history, offer, funding request, and forecast assumptions.",
   },
   {
-    title: "Find the missing pieces",
-    body: "The first check flags required answers and thin details before they become vague sections in the plan.",
+    title: "Close the important gaps",
+    body: "A readiness check flags missing answers and thin details before they turn into vague sections.",
   },
   {
-    title: "Build the business case",
-    body: "A market-focused stage organizes your customer, competition, positioning, and path to revenue from your answers.",
+    title: "Shape the business case",
+    body: "Your customer, competition, positioning, and path to revenue are organized around the evidence you provide.",
   },
   {
-    title: "Challenge the numbers",
-    body: "A financial stage checks whether revenue, expenses, cash flow, break-even, and funding use tell a consistent story.",
+    title: "Pressure-test the numbers",
+    body: "Revenue, expenses, cash flow, break-even timing, and funding use are checked for internal consistency.",
   },
   {
-    title: "Draft, then stress-test",
-    body: "The plan is written in a funding-focused structure, then a final automated review stage flags weak claims and unresolved risks for Ben to address.",
+    title: "Draft, review, and refine",
+    body: "The workflow builds the draft and flags weak claims. Ben then reviews every section before delivery.",
   },
 ];
 
@@ -72,18 +72,18 @@ export default function MarketingPage() {
           href={accountStartUrl}
           events={accountEvents("header")}
         >
-          Start intake
+          Check fit
         </AnalyticsLink>
       </header>
 
       <main id="main-content">
         <section className="marketingHero" id="top" aria-labelledby="hero-title">
           <div className="heroMessage">
-            <p className="marketingEyebrow">Private beta · Expansion financing plans</p>
-            <h1 id="hero-title">Turn your business details into a plan a lender can review.</h1>
+            <p className="marketingEyebrow">For established local service businesses</p>
+            <h1 id="hero-title">A business plan built to stand up to lender questions.</h1>
             <p className="heroLead">
-              For owners of operating US local service businesses preparing for SBA-backed
-              or conventional expansion financing—not idea-stage founders starting from scratch.
+              Turn your operating history, funding request, and forecast assumptions into a
+              human-reviewed plan for SBA-backed or conventional expansion financing.
             </p>
             <div className="heroActions">
               <AnalyticsLink
@@ -91,7 +91,7 @@ export default function MarketingPage() {
                 href={accountStartUrl}
                 events={accountEvents("hero")}
               >
-                Start fit and intake
+                Check fit and start intake
                 <span aria-hidden="true">→</span>
               </AnalyticsLink>
               <AnalyticsLink
@@ -100,14 +100,15 @@ export default function MarketingPage() {
                 events={sampleEvents("hero", "pdf")}
                 download
               >
-                Download the fictional sample
+                Review a fictional sample
                 <span aria-hidden="true">↓</span>
               </AnalyticsLink>
             </div>
+            <p className="heroNote">Explore the intake before you commit. No payment is collected on this page.</p>
             <ul className="offerFacts" aria-label="Offer summary">
-              <li><strong>$750</strong><span>fixed validation price</span></li>
-              <li><strong>DOCX + PDF</strong><span>editable and shareable</span></li>
-              <li><strong>2 revisions</strong><span>two consolidated rounds</span></li>
+              <li><strong>$750 fixed fee</strong><span>for one expansion plan</span></li>
+              <li><strong>7-day delivery</strong><span>after complete intake is accepted</span></li>
+              <li><strong>2 revision rounds</strong><span>submitted as consolidated feedback</span></li>
             </ul>
           </div>
 
@@ -135,53 +136,67 @@ export default function MarketingPage() {
           </div>
         </section>
 
+        <section className="trustStrip" aria-label="Service commitments">
+          <div><strong>Personally reviewed</strong><span>Ben reviews and edits every plan before delivery.</span></div>
+          <div><strong>Assumptions made visible</strong><span>Gaps and unsupported claims are flagged for your review.</span></div>
+          <div><strong>Files you control</strong><span>Receive an editable DOCX and a shareable PDF.</span></div>
+        </section>
+
         <section className="fitSection" aria-labelledby="fit-title">
           <div>
-            <p className="sectionLabel">A focused starting point</p>
-            <h2 id="fit-title">Built for a specific funding conversation.</h2>
+            <p className="sectionLabel">Who this is for</p>
+            <h2 id="fit-title">Designed for businesses with a track record.</h2>
           </div>
           <div className="fitColumns">
             <div>
-              <h3>Good fit</h3>
-              <p>You operate a US local service business, are preparing to finance an expansion, and can provide operating history or explicit forecast assumptions.</p>
+              <h3>A strong fit</h3>
+              <ul className="fitList">
+                <li>You operate a US local service business.</li>
+                <li>You are seeking financing for a defined expansion.</li>
+                <li>You can share operating history and forecast assumptions.</li>
+              </ul>
             </div>
             <div>
-              <h3>Not the right fit</h3>
-              <p>You are pre-revenue, or need audited projections, legal or tax advice, independent research, verified citations, or a guarantee that a lender will approve the plan.</p>
+              <h3>Better served elsewhere</h3>
+              <ul className="fitList fitListMuted">
+                <li>You are still validating an idea or have no operating history.</li>
+                <li>You need audited projections or independent market research.</li>
+                <li>You need legal, tax, lending, or approval advice.</li>
+              </ul>
             </div>
           </div>
         </section>
 
         <section className="deliverablesSection" aria-labelledby="deliverables-title">
-          <div className="sectionHeading">
+          <div className="sectionHeading sectionHeadingCentered">
             <p className="sectionLabel">What you receive</p>
-            <h2 id="deliverables-title">A complete draft, plus a clearer view of its weak spots.</h2>
-            <p>The workflow uses the facts and estimates you provide. It organizes them, checks their internal consistency, and turns them into documents you can edit and review.</p>
+            <h2 id="deliverables-title">One plan. Three layers of confidence.</h2>
+            <p>Your information is organized, checked for consistency, and reviewed by a person before it becomes a document you control.</p>
           </div>
           <div className="deliverablesGrid">
             <article>
-              <span>01</span>
-              <h3>Funding-focused plan structure</h3>
+              <span>Structure</span>
+              <h3>A clear case for expansion</h3>
               <p>Executive summary, company and market context, offer, operations, management, funding use, risks, milestones, and financial narrative.</p>
             </article>
             <article>
-              <span>02</span>
-              <h3>Financial credibility notes</h3>
-              <p>Automated checks flag gaps or conflicts across revenue, expenses, cash flow, break-even timing, and the amount requested.</p>
+              <span>Checks</span>
+              <h3>Numbers that tell one story</h3>
+              <p>Consistency checks flag gaps across revenue, expenses, cash flow, break-even timing, and the amount requested.</p>
             </article>
             <article>
-              <span>03</span>
-              <h3>Professional delivery files</h3>
-              <p>An editable DOCX and a shareable PDF, so you can correct facts, add lender-specific requirements, and control the final version.</p>
+              <span>Review</span>
+              <h3>A person on the final pass</h3>
+              <p>Ben reviews and edits the draft before you receive an editable DOCX and shareable PDF.</p>
             </article>
           </div>
         </section>
 
         <section className="sampleSection" id="sample" aria-labelledby="sample-title">
           <div className="sampleCopy">
-            <p className="sectionLabel">See the deliverable</p>
-            <h2 id="sample-title">A fictional plan, shown without borrowed proof.</h2>
-            <p>Bywater Grounds Coffee House is a made-up New Orleans business created to demonstrate structure, depth, financial tables, and review notes. It is not a customer and its numbers are not research-backed.</p>
+            <p className="sectionLabel">Inspect the work first</p>
+            <h2 id="sample-title">See what “complete” looks like before you begin.</h2>
+            <p>Bywater Grounds Coffee House is fictional. The sample shows the structure, depth, financial tables, and review notes you can expect—without presenting made-up results as customer proof.</p>
             <div className="sampleActions">
               <AnalyticsLink
                 className="primaryAction"
@@ -219,9 +234,9 @@ export default function MarketingPage() {
 
         <section className="processSection" id="process" aria-labelledby="process-title">
           <div className="sectionHeading processHeading">
-            <p className="sectionLabel">The five-agent process</p>
-            <h2 id="process-title">Five focused jobs, followed by direct human review.</h2>
-            <p>Each automated stage has a narrow responsibility. Ben then reviews and edits the deliverable before delivery; this does not replace your lender, accountant, attorney, or advisor.</p>
+            <p className="sectionLabel">How your plan is built</p>
+            <h2 id="process-title">Five quality passes. One accountable reviewer.</h2>
+            <p>Software helps organize and check the work. Ben reviews and edits the final deliverable; your lender, accountant, attorney, and advisors remain the experts for their decisions.</p>
           </div>
           <ol className="processList">
             {processSteps.map((step, index) => (
@@ -235,71 +250,74 @@ export default function MarketingPage() {
 
         <section className="pricingSection" id="pricing" aria-labelledby="pricing-title">
           <div className="pricingIntro">
-            <p className="sectionLabel">One validation offer</p>
-            <h2 id="pricing-title">Funding-Focused Business Plan Service</h2>
-            <p>For one operating local service business and one expansion-financing use case.</p>
+            <p className="sectionLabel">Transparent pricing</p>
+            <h2 id="pricing-title">One complete plan. One fixed fee.</h2>
+            <p>For one operating local service business and one expansion-financing goal.</p>
             <div className="price"><strong>$750</strong><span>fixed fee</span></div>
           </div>
           <div className="packageDetails">
-            <h3>Included</h3>
+            <h3>Funding-focused business plan service</h3>
             <ul>
               <li>Guided intake and readiness check</li>
-              <li>Five-stage AI-assisted workflow</li>
+              <li>Five focused quality checks</li>
               <li>Three-year projection summary based on your inputs</li>
               <li>Human editorial and consistency review by Ben</li>
               <li>DOCX and PDF delivery</li>
               <li>Two consolidated revision rounds</li>
             </ul>
-            <div className="expectationNote">
-              <strong>Delivery and revision policy</strong>
-              <p>No payment is collected on this page. Delivery is seven calendar days after Ben accepts the intake as complete. Each revision round is one consolidated list submitted within seven days of delivery. Revisions refine the agreed plan; a new concept, audience, material data set, or custom analysis is new scope.</p>
-              <p>Fit is confirmed before work is accepted. A pre-acceptance scope mismatch or inability to deliver the agreed scope is canceled and refunded. After the first complete draft, a change of mind, business direction, or financing denial is not refundable; the included revisions cover in-scope corrections.</p>
+            <div className="termsAtGlance" aria-label="Terms at a glance">
+              <span>7-day delivery</span><span>2 revision rounds</span><span>Fit confirmed first</span>
             </div>
+            <details className="expectationNote">
+              <summary>Delivery, revisions, and refunds</summary>
+              <p>No payment is collected on this page. Delivery is seven calendar days after Ben accepts the intake as complete. Two consolidated revision rounds are included; each is one list submitted within seven days of delivery. Revisions refine the agreed plan. A new concept, audience, material data set, or custom analysis is new scope.</p>
+              <p>Fit is confirmed before work is accepted. A pre-acceptance scope mismatch or inability to deliver the agreed scope is canceled and refunded. After the first complete draft, a change of mind, business direction, or financing denial is not refundable; the included revisions cover in-scope corrections.</p>
+            </details>
             <AnalyticsLink
               className="primaryAction packageAction"
               href={accountStartUrl}
               events={accountEvents("pricing")}
             >
-              Start fit and intake
+              Check fit and start intake
               <span aria-hidden="true">→</span>
             </AnalyticsLink>
           </div>
         </section>
 
         <section className="trustSection" id="trust" aria-labelledby="trust-title">
-          <div className="sectionHeading">
-            <p className="sectionLabel">Before you begin</p>
-            <h2 id="trust-title">Clear boundaries make the plan more useful.</h2>
+          <div className="sectionHeading trustHeading">
+            <p className="sectionLabel">Plain-language commitments</p>
+            <h2 id="trust-title">Know what the service can—and cannot—do.</h2>
           </div>
           <div className="trustGrid">
             <article id="disclaimer">
-              <h3>AI assistance and responsibility</h3>
-              <p>Your plan is supported by an automated five-stage drafting and quality workflow, then personally reviewed and edited by Ben Hankins before delivery. Review every fact, assumption, and projection before sharing it.</p>
-              <p>The output is planning support—not legal, tax, accounting, investment, or lending advice. It does not guarantee financing or lender acceptance.</p>
+              <h3>A person reviews every plan</h3>
+              <p>Software supports drafting and quality checks, then the plan is personally reviewed and edited by Ben Hankins before delivery. You should review every fact, assumption, and projection before sharing it.</p>
+              <p>This is planning support—not legal, tax, accounting, investment, or lending advice. It does not guarantee financing or lender acceptance.</p>
             </article>
             <article id="privacy">
-              <h3>Privacy during beta</h3>
-              <p>Submit only information needed to prepare the plan. Do not include Social Security numbers, bank or card numbers, passwords, medical records, or other sensitive personal data.</p>
-              <p>Intake content is used to generate and deliver your plan and to support the beta. A formal retention schedule is not yet published; reply to your beta invitation to request deletion.</p>
+              <h3>Only share what the plan needs</h3>
+              <p>Do not submit Social Security numbers, bank or card numbers, passwords, medical records, or other sensitive personal data.</p>
+              <p>During beta, intake content is used to generate and deliver your plan and support the service. A formal retention schedule is not yet published; you can request deletion through your beta invitation.</p>
             </article>
             <article id="support">
-              <h3>Support and revisions</h3>
+              <h3>Support has a clear path</h3>
               <p>Reply to your private-beta invitation for access help, intake questions, file-delivery issues, or either included consolidated revision round.</p>
-              <p>Beta support can help operate the product, but it cannot validate financial assumptions or advise you on a loan application.</p>
+              <p>Support can help you use the service. Your financial and lending advisors should validate assumptions and loan decisions.</p>
             </article>
           </div>
         </section>
 
         <section className="finalCta" aria-labelledby="final-cta-title">
           <p className="sectionLabel">Start with the facts you already have</p>
-          <h2 id="final-cta-title">Build a plan you can question before a lender does.</h2>
-          <p>The intake is organized into business, market, growth, and financial sections. You can mark some follow-up answers as unknown.</p>
+          <h2 id="final-cta-title">Ready to see if the service fits your funding goal?</h2>
+          <p>Walk through the guided intake at your pace. You can mark follow-up items as unknown and return with stronger details later.</p>
           <AnalyticsLink
             className="primaryAction lightAction"
             href={accountStartUrl}
             events={accountEvents("final_cta")}
           >
-            Start fit and intake
+            Check fit and start intake
             <span aria-hidden="true">→</span>
           </AnalyticsLink>
         </section>
