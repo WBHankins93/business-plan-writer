@@ -143,9 +143,9 @@ Goal: validate one niche and prove the product can sell, deliver, and support re
 
 | ID | Initiative | Status | Priority | Acceptance Criteria |
 |---|---|---|---|---|
-| L-001 | Choose first beachhead niche | Planned | Must | One niche is selected and all near-term messaging targets it. |
-| L-002 | Create niche landing page | Planned | Must | Page explains problem, offer, deliverables, price, examples, and guarantee. |
-| L-003 | Define launch offer | Planned | Must | Price, revision count, turnaround promise, refund policy, and scope limits are documented. |
+| L-001 | Choose first beachhead niche | Shipped | Must | One niche is selected and all near-term messaging targets it. |
+| L-002 | Create niche landing page | Planned | Must | Page explains problem, offer, deliverables, price, examples, scope boundaries, and no-approval disclaimer. |
+| L-003 | Define launch offer | Shipped | Must | Price, revision count, turnaround promise, refund policy, and scope limits are documented. |
 | L-004 | Add sample screenshots or output preview | Planned | Must | Prospects can see what they are buying. |
 | L-005 | Run 10 beta customers through the flow | Planned | Must | At least 10 real users complete intake or attempt to. |
 | L-006 | Measure funnel analytics | Planned | Must | Landing conversion, checkout conversion, intake completion, generation success, export download, and revision count are tracked. |
@@ -190,18 +190,15 @@ These are intentionally not required for the 8/10 launch threshold.
 | S-014 | White-label consultant/accountant version | Watch | Could | Potential B2B channel. |
 | S-015 | Partner offers for LLC, bookkeeping, payroll, lending | Watch | Could | Monetization expansion after trust exists. |
 
-## Launch Package Hypotheses
+## Validation Launch Offer
 
-| Package | Hypothesis Price | Included |
+The earlier $149–$1,497 multi-tier software/package hypotheses are superseded for the first-customer validation window. The current launch tests one professional service:
+
+| Offer | Price | Included |
 |---|---:|---|
-| Starter AI Plan | $149 | Self-serve guided intake, generated business plan, DOCX/PDF export. |
-| Funding Ready | $497 | Full plan, financial credibility review, DOCX/PDF export, 10 revision passes. |
-| Reviewed Plan | $997 | Funding Ready plus human review and edits before delivery. |
-| Consultant Alternative | $1,497 | Reviewed Plan plus pitch deck, spreadsheet, and rush/support priority. |
+| Funding-Focused Business Plan Service | $750 | Structured intake, funding-focused plan, three-year projection summary based on customer inputs, human review, DOCX/PDF, seven-day delivery after complete intake, and two revision rounds. |
 
-Current preferred launch offer:
-
-> Funding Ready: $497 for a lender-ready business plan with guided intake, DOCX/PDF export, financial credibility checks, and 10 included revisions.
+Independent market research, a custom spreadsheet, legal/accounting advice, and financing approval are not included. Cancellation and refund terms are documented in `docs/launch-playbook.md` and `FIVERR-GIG.md`.
 
 ## Key Product Metrics
 
@@ -236,6 +233,10 @@ Current preferred launch offer:
 | 2026-07-03 | Use 8/10 as the pre-launch readiness target. | 10/10 polish should not block market validation. |
 | 2026-07-03 | Position against business plan writing services, not cheap AI generators. | The product has better margin and perceived value as a funding-ready package. |
 | 2026-07-03 | Favor a $497 Funding Ready offer as the initial commercial hypothesis. | Raw model cost is low enough to include revisions while preserving margin. |
+| 2026-07-19 | Use Business Plan Writer publicly, with Ben Hankins as the named practitioner; keep Sproutflow out of launch messaging except where it is the actual legal payee. | The buyer needs one descriptive service identity and one accountable human, not three competing names. |
+| 2026-07-19 | Target owners of operating US local service businesses preparing for SBA-backed or conventional expansion financing. | This buyer has a specific job-to-be-done and is more likely than an idea-stage founder to have usable operating and financial inputs. |
+| 2026-07-19 | Validate one $750 Funding-Focused Business Plan Service with seven-day delivery after complete intake and two revision rounds. | One fixed offer makes early conversion, labor, quality, and willingness-to-pay data interpretable. See `docs/launch-playbook.md`. |
+| 2026-07-19 | Do not market sourced or independent research in the validation offer. | Market research citations remain a future roadmap item; public claims must match current capability and delivered scope. |
 
 ## Update Template
 
