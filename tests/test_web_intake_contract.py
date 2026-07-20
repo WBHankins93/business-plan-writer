@@ -22,16 +22,28 @@ class FakeRunStore:
         self.run = None
         self.audit_events = []
 
-    def create(self, *, run_id, client_slug, intake, artifact_path) -> None:
+    def create(
+        self,
+        *,
+        run_id,
+        client_slug,
+        intake,
+        artifact_path,
+        provider,
+        model,
+        configuration,
+    ) -> None:
         now = datetime(2026, 7, 19, 12, 0, 0)
         self.run = SimpleNamespace(
             id=run_id,
             client_slug=client_slug,
             status="queued",
-            intake_json=intake,
-            artifact_path=artifact_path,
+            input_snapshot_json=intake,
             progress_json=[],
-            result_json=None,
+            provider=provider,
+            model=model,
+            configuration_json=configuration,
+            output_summary_json=None,
             error_code=None,
             error_message=None,
             started_at=None,
@@ -43,8 +55,30 @@ class FakeRunStore:
     def get(self, _run_id):
         return self.run
 
+    def get_owned(self, _run_id, _owner_id):
+        return self.run
+
     def events(self, _run_id):
         return self.audit_events
+
+    def artifacts(self, _run_id):
+        return []
+
+
+class FakeBillingStore:
+    def __init__(self, run_store: FakeRunStore) -> None:
+        self.run_store = run_store
+
+    def create_paid_run(self, *, run_id, client_slug, intake, **_kwargs):
+        self.run_store.create(
+            run_id=run_id,
+            client_slug=client_slug,
+            intake=intake,
+            artifact_path=None,
+            provider="groq",
+            model="test-model",
+            configuration={},
+        )
 
 
 class WebIntakeContractTests(unittest.TestCase):
@@ -72,17 +106,21 @@ class WebIntakeContractTests(unittest.TestCase):
         intake["business_information"]["business_name"] = "Lena's Cakes & Co."
         store = FakeRunStore()
 
-        with patch("web_api.app._store", return_value=store):
-            response = generate_plan(GeneratePlanRequest(intake=intake), BackgroundTasks())
+        with patch("web_api.app.BillingStore", return_value=FakeBillingStore(store)):
+            response = generate_plan(
+                GeneratePlanRequest(intake=intake),
+                BackgroundTasks(),
+                owner_id="11111111-1111-1111-1111-111111111111",
+            )
 
         self.assertEqual(response["client_slug"], "lena-s-cakes-co")
-        self.assertEqual(store.run.intake_json["business_information"]["business_name"], "Lena's Cakes & Co.")
-        self.assertNotIn("_meta", store.run.intake_json)
+        self.assertEqual(store.run.input_snapshot_json["business_information"]["business_name"], "Lena's Cakes & Co.")
+        self.assertNotIn("_meta", store.run.input_snapshot_json)
         self.assertEqual(
             {(field.section, field.name) for field in SCHEMA},
             {
                 (section, name)
-                for section, values in store.run.intake_json.items()
+                for section, values in store.run.input_snapshot_json.items()
                 for name in values
             },
         )
@@ -102,8 +140,12 @@ class WebIntakeContractTests(unittest.TestCase):
     def test_demo_request_queue_poll_result_contract(self) -> None:
         store = FakeRunStore()
         background = BackgroundTasks()
-        with patch("web_api.app._store", return_value=store):
-            queued = generate_plan(GeneratePlanRequest(intake=self.demo), background)
+        with patch("web_api.app.BillingStore", return_value=FakeBillingStore(store)):
+            queued = generate_plan(
+                GeneratePlanRequest(intake=self.demo),
+                background,
+                owner_id="11111111-1111-1111-1111-111111111111",
+            )
 
             self.assertEqual(queued["status"], "queued")
             self.assertEqual(len(queued["progress"]), 5)
@@ -114,7 +156,7 @@ class WebIntakeContractTests(unittest.TestCase):
                 {"step": index + 1, "name": name, "status": "complete"}
                 for index, name in enumerate(["Validation", "Market", "Financials", "Draft", "Review"])
             ]
-            store.run.result_json = {
+            store.run.output_summary_json = {
                 "status": "succeeded",
                 "draft_markdown": "# Bywater Grounds",
                 "progress": store.run.progress_json,
@@ -122,7 +164,11 @@ class WebIntakeContractTests(unittest.TestCase):
             store.run.created_at = datetime(2026, 7, 19, 12, 0, 0)
             store.run.updated_at = datetime(2026, 7, 19, 12, 1, 0)
 
-            polled = get_run(queued["run_id"])
+            with patch("web_api.app._store", return_value=store):
+                polled = get_run(
+                    queued["run_id"],
+                    owner_id="11111111-1111-1111-1111-111111111111",
+                )
 
         self.assertEqual(polled["status"], "succeeded")
         self.assertEqual(polled["result"]["draft_markdown"], "# Bywater Grounds")

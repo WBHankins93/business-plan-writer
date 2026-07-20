@@ -229,9 +229,9 @@ separate boundaries while preserving the CLI pipeline contract.
 - Make local backend/web runs reproducible via clear environment config.
 - Expand tests around API lifecycle and pipeline failure paths.
 
-### Priority 5 — SaaS foundation (future)
-- Add billing/multi-tenant controls later.
-- Add auth later (intentionally deferred for current open-source phase).
+### Priority 5 — Public-beta commerce
+- Maintain the single one-time Funding Ready checkout and entitlement flow.
+- Integrate the existing authentication layer with the owner-scoped billing dependency.
 - Expand storage strategy from local artifacts to managed object storage when needed.
 
 ---
@@ -260,6 +260,12 @@ DATABASE_URL=postgresql+psycopg://<user>:<password>@<host>/<db>?sslmode=require
   or upgrades tables on startup; `/readyz` returns `503` until the database is at migration head.
 
 ### Current backend endpoints
+- `GET /billing/package` → fetch the single server-defined Funding Ready offer
+- `POST /billing/checkout-sessions` → create a Stripe-hosted one-time Checkout Session
+- `GET /billing/payments/{payment_id}` → poll webhook-confirmed payment/entitlement state
+- `GET /billing/entitlements` → list available, reserved, consumed, or refunded credits
+- `POST /billing/support-requests` → trace refund, generation, or beta QA requests
+- `POST /billing/webhooks/stripe` → receive signature-verified Stripe events
 - `POST /generate-plan` → queue pipeline execution and return `202` + `run_id`
 - `GET /runs/{run_id}` → fetch persisted run status/result
 - `GET /runs/{run_id}/artifacts/{filename}` → download a run-scoped artifact
@@ -301,3 +307,6 @@ it is suitable for a small private beta, not multi-host or high-volume execution
 restart can strand a queued/running run, and local artifacts are not shared across hosts.
 
 See `docs/production-readiness.md` for operator notes and remaining caveats.
+
+See `docs/public-beta-checkout.md` for the checkout, webhook, entitlement, refund, and
+test-mode operating contract.

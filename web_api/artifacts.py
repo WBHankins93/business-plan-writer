@@ -30,6 +30,13 @@ class ArtifactStore:
             return None
         return path
 
+    def resolve_storage_key(self, storage_key: str) -> Path | None:
+        """Resolve a database artifact reference without trusting an absolute path."""
+        path = (self.root / storage_key).resolve()
+        if self.root not in path.parents or not path.is_file():
+            return None
+        return path
+
     def build_result(self, run_id: str, client_slug: str) -> dict:
         directory = self.run_directory(run_id)
         draft_candidates = sorted(directory.glob("agent-4.draft.v*.md"))

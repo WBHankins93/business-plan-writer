@@ -123,12 +123,12 @@ Goal: a customer can buy, complete intake, generate, revise, and download withou
 | P-002 | Add examples and helper text for hard questions | Planned | Must | Users understand what good answers look like. |
 | P-003 | Add "I do not know" answer paths | Planned | Should | Unknown answers can be inferred, skipped, or flagged without blocking unnecessarily. |
 | P-004 | Add account creation and login | Planned | Must | Users can own projects and return later. |
-| P-005 | Add Stripe checkout | Planned | Must | User can purchase a package before or during generation. |
-| P-006 | Add package definitions | Planned | Must | Starter, Funding Ready, and Reviewed Plan packages are defined in-product. |
+| P-005 | Add Stripe checkout | Implemented | Must | User can purchase the single public-beta offer before generation. |
+| P-006 | Add package definition | Implemented | Must | The Funding Ready one-time offer is the only in-product package. |
 | P-007 | Add post-payment project dashboard | Planned | Must | User sees purchased plan, status, exports, and revisions. |
-| P-008 | Add revision counter | Planned | Should | Included revision passes are tracked and visible. |
+| P-008 | Add revision counter | Implemented | Should | Two included revision passes are tracked and enforced. |
 | P-009 | Add terms, disclaimers, and privacy language | Planned | Must | Product states AI-assisted nature, no legal/financial advice, and user review responsibility. |
-| P-010 | Add support contact path | Planned | Must | Customer can request help or report a bad output. |
+| P-010 | Add support contact path | Implemented | Must | Customer support/refund requests are idempotent and linked to payments or runs. |
 | P-011 | Add email notifications | Planned | Should | User receives draft-ready and export-ready notifications. |
 | P-012 | Polish responsive UI states | Planned | Must | Empty, loading, failed, mobile, and success states look intentional. |
 
@@ -190,18 +190,13 @@ These are intentionally not required for the 8/10 launch threshold.
 | S-014 | White-label consultant/accountant version | Watch | Could | Potential B2B channel. |
 | S-015 | Partner offers for LLC, bookkeeping, payroll, lending | Watch | Could | Monetization expansion after trust exists. |
 
-## Launch Package Hypotheses
+## Public Beta Launch Offer
 
-| Package | Hypothesis Price | Included |
+| Package | Price | Included |
 |---|---:|---|
-| Starter AI Plan | $149 | Self-serve guided intake, generated business plan, DOCX/PDF export. |
-| Funding Ready | $497 | Full plan, financial credibility review, DOCX/PDF export, 10 revision passes. |
-| Reviewed Plan | $997 | Funding Ready plus human review and edits before delivery. |
-| Consultant Alternative | $1,497 | Reviewed Plan plus pitch deck, spreadsheet, and rush/support priority. |
+| Funding Ready | $497 one time | One funding-ready plan, financial credibility review, DOCX/PDF, two revisions, delivery targeted within two business days, and optional human QA by support request during beta. |
 
-Current preferred launch offer:
-
-> Funding Ready: $497 for a lender-ready business plan with guided intake, DOCX/PDF export, financial credibility checks, and 10 included revisions.
+No subscription, alternate tier, add-on ladder, coupon, or upgrade path is supported in this release.
 
 ## Key Product Metrics
 
