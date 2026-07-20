@@ -865,6 +865,15 @@ textarea[aria-invalid="true"] {
   letter-spacing: -0.04em;
 }
 
+.brand small {
+  display: block;
+  margin-top: 2px;
+  color: var(--m-ink-soft);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
 .marketingHeader nav {
   display: flex;
   align-items: center;

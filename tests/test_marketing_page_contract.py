@@ -15,9 +15,10 @@ class MarketingPageContractTests(unittest.TestCase):
         for section_id in ["sample", "process", "pricing", "trust", "privacy", "support"]:
             self.assertIn(f'id="{section_id}"', source)
 
-        self.assertIn("$497", source)
-        self.assertIn("One consolidated revision round", source)
-        self.assertIn("not reviewed by a human expert", source)
+        self.assertIn("$750", source)
+        self.assertIn("Two consolidated revision rounds", source)
+        self.assertIn("reviewed and edited by Ben Hankins", source)
+        self.assertIn("seven calendar days", source)
         self.assertIn("does not guarantee financing", source)
 
     def test_account_start_url_defaults_to_intake_without_adding_auth(self) -> None:

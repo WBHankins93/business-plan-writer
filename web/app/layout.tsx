@@ -2,8 +2,8 @@ import "./globals.css";
 import type { ReactNode } from "react";
 
 export const metadata = {
-  title: "Lender-ready business plans | Business Plan Writer",
-  description: "Guided business plans for local owners preparing for an SBA or bank-loan conversation, with automated financial credibility checks and DOCX/PDF delivery.",
+  title: "Funding-focused business plans | Business Plan Writer",
+  description: "Human-reviewed business plans for operating local-service-business owners preparing for SBA-backed or conventional expansion financing.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
