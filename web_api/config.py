@@ -32,14 +32,3 @@ def pipeline_timeout_seconds() -> float:
     if value <= 0:
         raise RuntimeError("PIPELINE_TIMEOUT_SECONDS must be greater than zero")
     return value
-
-
-def download_token_ttl_seconds() -> int:
-    raw_value = os.getenv("DOWNLOAD_TOKEN_TTL_SECONDS", "900")
-    try:
-        value = int(raw_value)
-    except ValueError as exc:
-        raise RuntimeError("DOWNLOAD_TOKEN_TTL_SECONDS must be an integer") from exc
-    if value <= 0:
-        raise RuntimeError("DOWNLOAD_TOKEN_TTL_SECONDS must be greater than zero")
-    return value

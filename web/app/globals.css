@@ -663,6 +663,236 @@ textarea[aria-invalid="true"] {
   font-weight: 500;
 }
 
+.authShell,
+.projectsShell {
+  width: min(1040px, calc(100% - 32px));
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: clamp(32px, 8vw, 96px) 0;
+}
+
+.authShell {
+  display: grid;
+  place-items: center;
+}
+
+.authCard,
+.projectsCard {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: clamp(26px, 5vw, 48px);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+
+.authCard {
+  max-width: 500px;
+}
+
+.authCard .eyebrow,
+.projectsShell .eyebrow {
+  color: var(--blue);
+}
+
+.authCard h1,
+.accountHeader h1 {
+  margin: 10px 0 12px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.2rem, 6vw, 3.7rem);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+}
+
+.authCard > p:not(.eyebrow):not(.notice):not(.authSwitch) {
+  color: var(--ink-soft);
+  line-height: 1.6;
+}
+
+.authForm {
+  display: grid;
+  gap: 9px;
+  margin-top: 26px;
+}
+
+.authForm label {
+  margin-top: 7px;
+  font-size: 0.86rem;
+  font-weight: 760;
+}
+
+.authForm button {
+  margin-top: 14px;
+}
+
+.authSwitch,
+.demoLink {
+  display: block;
+  margin: 20px 0 0;
+  text-align: center;
+}
+
+.demoLink {
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+}
+
+.landingCard {
+  max-width: 700px;
+  text-align: center;
+}
+
+.landingActions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.accountHeader,
+.projectsHeading,
+.accountBar,
+.accountState {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.accountHeader {
+  align-items: flex-end;
+  margin-bottom: 24px;
+}
+
+.accountHeader h1 {
+  margin-bottom: 0;
+}
+
+.accountState {
+  color: var(--ink-soft);
+  font-size: 0.84rem;
+}
+
+.projectsHeading {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 22px;
+}
+
+.projectsHeading h2,
+.emptyState h3 {
+  margin: 0 0 5px;
+}
+
+.projectsHeading p,
+.emptyState p {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.projectGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.projectGrid a {
+  display: flex;
+  min-height: 128px;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 18px;
+  background: #f8faff;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.projectGrid a:hover {
+  border-color: #9db2da;
+  background: #f1f5ff;
+}
+
+.projectGrid span,
+.projectGrid small {
+  margin-top: 7px;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+
+.projectGrid small {
+  margin-top: auto;
+}
+
+.emptyState {
+  padding: 54px 12px;
+  text-align: center;
+}
+
+.accountBar {
+  min-height: 54px;
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px 8px 16px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+
+.accountBar > a {
+  margin-right: auto;
+  color: var(--blue-dark);
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.accountBar form,
+.accountState form {
+  margin: 0;
+}
+
+.accountBar button,
+.accountState button {
+  min-height: 36px;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+}
+
+.saveStatus {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 750;
+}
+
+.saveStatus.saved { color: var(--green); }
+.saveStatus.pending,
+.saveStatus.saving { color: var(--amber); }
+.saveStatus.error { color: var(--red); }
+
+.saveStatus button {
+  min-height: 30px;
+  border-color: var(--red);
+  padding: 3px 8px;
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.saveError {
+  margin: 0 0 14px;
+  border: 1px solid #efb7bd;
+  border-radius: 8px;
+  padding: 11px 14px;
+  background: var(--red-soft);
+  color: #8e1823;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
 @media (max-width: 980px) {
   .hero {
     align-items: flex-start;
@@ -756,6 +986,23 @@ textarea[aria-invalid="true"] {
   .exportRow,
   .buttonLink {
     width: 100%;
+  }
+
+  .accountHeader,
+  .projectsHeading,
+  .accountBar,
+  .accountState,
+  .landingActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .accountBar > a {
+    margin-right: 0;
+  }
+
+  .projectGrid {
+    grid-template-columns: 1fr;
   }
 }
 
